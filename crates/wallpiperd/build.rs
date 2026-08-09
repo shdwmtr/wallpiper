@@ -8,7 +8,7 @@ fn main() {
         .parent()
         .and_then(|p| p.parent())
         .expect("expected crates/wallpiperd to be two levels below the workspace root");
-    let translation_layer = workspace_root.join("translation_layer");
+    let translation_layer = workspace_root.join("rt-translation-layer");
 
     println!("cargo:rerun-if-changed={}", translation_layer.display());
 
@@ -16,9 +16,9 @@ fn main() {
         .arg("-C")
         .arg(&translation_layer)
         .status()
-        .expect("failed to invoke `make` for translation_layer");
+        .expect("failed to invoke `make` for rt-translation-layer");
 
     if !status.success() {
-        panic!("translation_layer build failed with {status}");
+        panic!("rt-translation-layer build failed with {status}");
     }
 }

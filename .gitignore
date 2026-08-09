@@ -2,4 +2,4 @@
 NOTES_TO_SELF_DO_NOT_READ.md
 NOTES.md
 compile_commands.json
-translation_layer/.cache/clangd/index/
+.cache/
