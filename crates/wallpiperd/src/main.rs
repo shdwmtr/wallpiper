@@ -56,6 +56,22 @@ fn pid_alive(pid: i32) -> bool {
     std::path::Path::new(&format!("/proc/{pid}")).exists()
 }
 
+fn reap_children_forever() {
+    let mut signals = signal_hook::iterator::Signals::new([signal_hook::consts::SIGCHLD])
+        .expect("failed to register SIGCHLD handler");
+    std::thread::spawn(move || {
+        for _ in signals.forever() {
+            loop {
+                let mut status: libc::c_int = 0;
+                let pid = unsafe { libc::waitpid(-1, &mut status, libc::WNOHANG) };
+                if pid <= 0 {
+                    break;
+                }
+            }
+        }
+    });
+}
+
 fn kill_pids_gracefully(pids: &[i32]) {
     for &pid in pids {
         let res = unsafe { libc::kill(pid, libc::SIGTERM) };
@@ -517,6 +533,8 @@ fn main() {
     let selection_socket = UnixDatagram::bind_addr(&selection_addr)
         .expect("failed to bind selection socket (is another wallpiperd already running?)");
     println!("listening for selections on abstract socket");
+
+    reap_children_forever();
 
     {
         let mut signals = signal_hook::iterator::Signals::new([
