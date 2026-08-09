@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::os::linux::net::SocketAddrExt;
 use std::os::unix::net::{SocketAddr, UnixDatagram};
+use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -295,6 +296,7 @@ fn spawn_portal(name: &str) {
     match Command::new(&bin)
         .stdout(Stdio::from(logfile))
         .stderr(Stdio::from(logfile_err))
+        .process_group(0)
         .spawn()
     {
         Ok(child) => {
@@ -385,6 +387,7 @@ fn ensure_persistent_wineserver() {
         .env("WINEPREFIX", &prefix)
         .stdout(Stdio::from(logfile))
         .stderr(Stdio::from(logfile_err))
+        .process_group(0)
         .spawn()
     {
         Ok(child) => println!(
@@ -416,6 +419,7 @@ pub(crate) fn launch_ui(extra_arg: Option<&str>) {
         .env("VK_INSTANCE_LAYERS", VK_CAPTURE_LAYER_NAME)
         .stdout(Stdio::from(logfile))
         .stderr(Stdio::from(logfile_err))
+        .process_group(0)
         .spawn();
     match spawned {
         Ok(child) => println!("launched WE UI (with we-mitm tap) pid={}", child.id()),
@@ -491,7 +495,8 @@ fn spawn_renderer(file: &str, location: &str, monitor: MonitorGeometry) {
         .env("WALLPIPER_MONITOR_LOGICAL_HEIGHT", monitor.logical_height.to_string())
         .env("WALLPIPER_PORTAL_CTL_SOCKET", wallpiper_protocol::ctl_socket_path(&portal_name()))
         .stdout(Stdio::from(logfile))
-        .stderr(Stdio::from(logfile_err));
+        .stderr(Stdio::from(logfile_err))
+        .process_group(0);
 
     match cmd.spawn() {
         Ok(child) => println!("spawned proton wrapper pid={}", child.id()),
