@@ -1,0 +1,13 @@
+[package]
+name = "wallpiperd"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wallpiper-protocol = { path = "../wallpiper-protocol" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+libc = "0.2"
+ksni = { version = "0.3", features = ["blocking"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+signal-hook = "0.3"

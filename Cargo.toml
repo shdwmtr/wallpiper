@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/wallpiperd",
+    "crates/wallpiper-protocol",
+    "crates/wallpiper-portal-hyprland",
+    "crates/vulkan-layer-capture",
+    "crates/vulkan-layer",
+    "crates/vulkan-layer-macros",
+]
+
+[profile.release]
+panic = "abort"
