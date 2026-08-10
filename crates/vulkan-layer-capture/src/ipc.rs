@@ -17,6 +17,7 @@ pub(crate) struct BufferAnnounce {
     pub stride: u32,
     pub modifier: u64,
     pub fd: RawFd,
+    pub sync_fd: RawFd,
 }
 
 #[derive(Default)]
@@ -40,9 +41,17 @@ impl CaptureLink {
         result
     }
 
-    pub(crate) fn notify_frame(&self, slot: u32) {
+    pub(crate) fn notify_frame(&self, slot: u32, sync_fd: RawFd) {
         let header = format!("FRAME {slot}\n");
-        if let Err(e) = self.with_socket(|socket| socket.send(header.as_bytes()).map(|_| ())) {
+        let result = if sync_fd >= 0 {
+            self.with_socket(|socket| send_with_fds(socket.as_raw_fd(), header.as_bytes(), &[sync_fd]))
+        } else {
+            self.with_socket(|socket| socket.send(header.as_bytes()).map(|_| ()))
+        };
+        if sync_fd >= 0 {
+            unsafe { libc::close(sync_fd) };
+        }
+        if let Err(e) = result {
             log!("notify_frame failed: {e}");
         }
     }
@@ -56,14 +65,19 @@ impl CaptureLink {
             stride,
             modifier,
             fd,
+            sync_fd,
         } = announce;
         let header = format!(
             "BUF {slot} {width} {height} {} {stride} {modifier}\n",
             format.as_raw()
         );
+        let fds: &[RawFd] = if sync_fd >= 0 { &[fd, sync_fd] } else { &[fd] };
         let result =
-            self.with_socket(|socket| send_with_fd(socket.as_raw_fd(), header.as_bytes(), fd));
+            self.with_socket(|socket| send_with_fds(socket.as_raw_fd(), header.as_bytes(), fds));
         unsafe { libc::close(fd) };
+        if sync_fd >= 0 {
+            unsafe { libc::close(sync_fd) };
+        }
         match result {
             Ok(()) => {
                 log!("sent BUF for slot {slot}");
@@ -77,10 +91,9 @@ impl CaptureLink {
     }
 }
 
-fn send_with_fd(socket: RawFd, header: &[u8], fd: RawFd) -> io::Result<()> {
+fn send_with_fds(socket: RawFd, header: &[u8], fds: &[RawFd]) -> io::Result<()> {
     let iov = [IoSlice::new(header)];
-    let fds = [fd];
-    let cmsgs = [ControlMessage::ScmRights(&fds)];
+    let cmsgs = [ControlMessage::ScmRights(fds)];
     sendmsg::<UnixAddr>(socket, &iov, &cmsgs, MsgFlags::empty(), None)
         .map(|_| ())
         .map_err(io::Error::from)

@@ -1,0 +1,18 @@
+{
+    "KPackageStructure": "Plasma/Wallpaper",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Ethan Alexander",
+                "Email": "contact@ethanjalexander.ca"
+            }
+        ],
+        "Category": "",
+        "Description": "Native Wallpaper Engine support for KDE Plasma",
+        "Icon": "preferences-desktop-wallpaper",
+        "Id": "dev.wallpiper.kde",
+        "License": "Apache-2.0",
+        "Name": "Wallpiper"
+    },
+    "X-KDE-ParentApp": "org.kde.plasmashell"
+}

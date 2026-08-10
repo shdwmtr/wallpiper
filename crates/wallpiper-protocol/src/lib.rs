@@ -11,7 +11,7 @@ pub fn ctl_socket_path(portal_name: &str) -> String {
     format!("/tmp/wallpiper-portal-{portal_name}-ctl.sock")
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct MonitorGeometry {
     pub x: i32,
     pub y: i32,
@@ -30,9 +30,11 @@ pub enum SocketEvent {
         stride: u32,
         modifier: u64,
         fd: RawFd,
+        sync_fd: Option<RawFd>,
     },
     Frame {
         slot: u32,
+        sync_fd: Option<RawFd>,
     },
     Shm {
         width: u32,
@@ -42,7 +44,9 @@ pub enum SocketEvent {
     },
 }
 
-unsafe fn recv_msg(sock_fd: RawFd) -> std::io::Result<(String, Option<RawFd>)> {
+const MAX_RECV_FDS: usize = 2;
+
+unsafe fn recv_msg(sock_fd: RawFd) -> std::io::Result<(String, Vec<RawFd>)> {
     let mut header_buf = [0u8; 256];
     let mut cmsg_buf = [0u8; 64];
     let mut iov = libc::iovec {
@@ -63,13 +67,16 @@ unsafe fn recv_msg(sock_fd: RawFd) -> std::io::Result<(String, Option<RawFd>)> {
         .trim()
         .to_string();
     let cmsg = libc::CMSG_FIRSTHDR(&msg);
-    let fd = if cmsg.is_null() {
-        None
-    } else {
+    let mut fds = Vec::new();
+    if !cmsg.is_null() {
+        let data_len = (*cmsg).cmsg_len.saturating_sub(libc::CMSG_LEN(0) as usize);
+        let count = (data_len / std::mem::size_of::<libc::c_int>()).min(MAX_RECV_FDS);
         let data_ptr = libc::CMSG_DATA(cmsg) as *const libc::c_int;
-        Some(std::ptr::read_unaligned(data_ptr))
-    };
-    Ok((header, fd))
+        for i in 0..count {
+            fds.push(std::ptr::read_unaligned(data_ptr.add(i)));
+        }
+    }
+    Ok((header, fds))
 }
 
 pub fn bind_unix_dgram(path: &str) -> RawFd {
@@ -95,7 +102,7 @@ pub fn bind_unix_dgram(path: &str) -> RawFd {
     sock_fd
 }
 
-pub fn parse_event(header: &str, fd: Option<RawFd>) -> Option<SocketEvent> {
+pub fn parse_event(header: &str, fds: &[RawFd]) -> Option<SocketEvent> {
     let parts: Vec<&str> = header.split_whitespace().collect();
     match parts.first().copied() {
         Some("BUF") => Some(SocketEvent::Buf {
@@ -104,16 +111,18 @@ pub fn parse_event(header: &str, fd: Option<RawFd>) -> Option<SocketEvent> {
             height: parts.get(3)?.parse().ok()?,
             stride: parts.get(5)?.parse().ok()?,
             modifier: parts.get(6)?.parse().ok()?,
-            fd: fd?,
+            fd: *fds.first()?,
+            sync_fd: fds.get(1).copied(),
         }),
         Some("FRAME") => Some(SocketEvent::Frame {
             slot: parts.get(1)?.parse().ok()?,
+            sync_fd: fds.first().copied(),
         }),
         Some("SHM") => Some(SocketEvent::Shm {
             width: parts.get(1)?.parse().ok()?,
             height: parts.get(2)?.parse().ok()?,
             stride: parts.get(3)?.parse().ok()?,
-            fd: fd?,
+            fd: *fds.first()?,
         }),
         _ => None,
     }
@@ -127,7 +136,7 @@ pub fn spawn_capture_socket_thread() -> mpsc::Receiver<SocketEvent> {
 
         loop {
             match unsafe { recv_msg(sock_fd) } {
-                Ok((header, fd)) => match parse_event(&header, fd) {
+                Ok((header, fds)) => match parse_event(&header, &fds) {
                     Some(event) => {
                         if tx.send(event).is_err() {
                             break;
@@ -135,7 +144,7 @@ pub fn spawn_capture_socket_thread() -> mpsc::Receiver<SocketEvent> {
                     }
                     None => {
                         println!("[socket] unrecognized or malformed message: {header:?}");
-                        if let Some(fd) = fd {
+                        for fd in fds {
                             unsafe { libc::close(fd) };
                         }
                     }

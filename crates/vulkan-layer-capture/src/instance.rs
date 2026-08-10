@@ -10,9 +10,11 @@ use crate::process::is_target_process;
 
 static GLOBAL_INSTANCE: OnceLock<Arc<ash::Instance>> = OnceLock::new();
 
-const REQUIRED_DEVICE_EXTENSIONS: [&CStr; 2] = [
+const REQUIRED_DEVICE_EXTENSIONS: [&CStr; 4] = [
     c"VK_EXT_image_drm_format_modifier",
     c"VK_KHR_image_format_list",
+    c"VK_KHR_external_semaphore",
+    c"VK_KHR_external_semaphore_fd",
 ];
 
 pub(crate) fn set_global_instance(instance: Arc<ash::Instance>) {

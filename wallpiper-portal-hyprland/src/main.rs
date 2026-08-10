@@ -24,11 +24,15 @@ use smithay_client_toolkit::{
 };
 use wayland_client::{
     globals::registry_queue_init,
-    protocol::{wl_buffer, wl_output, wl_shm, wl_shm_pool, wl_subcompositor, wl_subsurface, wl_surface},
+    protocol::{
+        wl_buffer, wl_output, wl_shm, wl_shm_pool, wl_subcompositor, wl_subsurface, wl_surface,
+    },
     Connection, Dispatch, QueueHandle,
 };
 use wayland_protocols::wp::linux_dmabuf::zv1::client::zwp_linux_buffer_params_v1;
-use wayland_protocols::wp::viewporter::client::{wp_viewport::WpViewport, wp_viewporter::WpViewporter};
+use wayland_protocols::wp::viewporter::client::{
+    wp_viewport::WpViewport, wp_viewporter::WpViewporter,
+};
 
 use wallpiper_protocol::{CtlRequest, CtlResponse, MonitorGeometry, SocketEvent};
 
@@ -112,8 +116,12 @@ fn hypr_socket_path() -> Option<String> {
 fn query_cursor_pos() -> Option<(i32, i32)> {
     let path = hypr_socket_path()?;
     let mut stream = UnixStream::connect(path).ok()?;
-    stream.set_read_timeout(Some(Duration::from_millis(200))).ok()?;
-    stream.set_write_timeout(Some(Duration::from_millis(200))).ok()?;
+    stream
+        .set_read_timeout(Some(Duration::from_millis(200)))
+        .ok()?;
+    stream
+        .set_write_timeout(Some(Duration::from_millis(200)))
+        .ok()?;
     stream.write_all(b"cursorpos").ok()?;
     let mut response = String::new();
     stream.read_to_string(&mut response).ok()?;
@@ -149,15 +157,21 @@ fn main() {
     let compositor = CompositorState::bind(&globals, &qh).expect("wl_compositor not available");
     let layer_shell = LayerShell::bind(&globals, &qh).expect("zwlr_layer_shell_v1 not available");
     let dmabuf_state = DmabufState::new(&globals, &qh);
-    let viewporter = globals.bind::<WpViewporter, _, _>(&qh, 1..=1, GlobalData).ok();
+    let viewporter = globals
+        .bind::<WpViewporter, _, _>(&qh, 1..=1, GlobalData)
+        .ok();
     if viewporter.is_none() {
         println!("wp_viewporter not available, buffer will be shown at native size (may overhang on fractional-scale outputs)");
     }
-    let shm = globals.bind::<wl_shm::WlShm, _, _>(&qh, 1..=1, GlobalData).ok();
+    let shm = globals
+        .bind::<wl_shm::WlShm, _, _>(&qh, 1..=1, GlobalData)
+        .ok();
     if shm.is_none() {
         println!("wl_shm not available, SHM-sourced frames (e.g. web wallpapers) won't display");
     }
-    let subcompositor = globals.bind::<wl_subcompositor::WlSubcompositor, _, _>(&qh, 1..=1, GlobalData).ok();
+    let subcompositor = globals
+        .bind::<wl_subcompositor::WlSubcompositor, _, _>(&qh, 1..=1, GlobalData)
+        .ok();
     if subcompositor.is_none() {
         println!("wl_subcompositor not available, debug overlay won't be available");
     }
@@ -210,8 +224,14 @@ fn main() {
     state.layer = Some(layer);
 
     println!("layer surface created, waiting for configure + frame");
-    println!("dmabuf protocol version: {:?}", state.dmabuf_state.version());
-    println!("dmabuf modifiers (only populated if version <4): {:?}", state.dmabuf_state.modifiers());
+    println!(
+        "dmabuf protocol version: {:?}",
+        state.dmabuf_state.version()
+    );
+    println!(
+        "dmabuf modifiers (only populated if version <4): {:?}",
+        state.dmabuf_state.modifiers()
+    );
 
     let event_rx = wallpiper_protocol::spawn_capture_socket_thread();
     let ctl_rx = wallpiper_protocol::spawn_ctl_listener("hyprland", query_cursor_pos);
@@ -307,22 +327,66 @@ impl State {
         }
 
         match event {
-            SocketEvent::Buf { slot, width, height, stride, modifier, fd } => {
-                self.handle_buf(qh, BufMsg { slot, width, height, stride, modifier, fd });
+            SocketEvent::Buf {
+                slot,
+                width,
+                height,
+                stride,
+                modifier,
+                fd,
+                sync_fd,
+            } => {
+                if let Some(sync_fd) = sync_fd {
+                    unsafe { libc::close(sync_fd) };
+                }
+                self.handle_buf(
+                    qh,
+                    BufMsg {
+                        slot,
+                        width,
+                        height,
+                        stride,
+                        modifier,
+                        fd,
+                    },
+                );
             }
-            SocketEvent::Frame { slot } => {
+            SocketEvent::Frame { slot, sync_fd } => {
+                if let Some(sync_fd) = sync_fd {
+                    unsafe { libc::close(sync_fd) };
+                }
                 if self.slots.contains_key(&slot) {
                     self.set_current_source(qh, DisplaySource::Slot(slot));
                 }
             }
-            SocketEvent::Shm { width, height, stride, fd } => {
-                self.set_current_source(qh, DisplaySource::Shm(FrameInfo { fd, width, height, stride }));
+            SocketEvent::Shm {
+                width,
+                height,
+                stride,
+                fd,
+            } => {
+                self.set_current_source(
+                    qh,
+                    DisplaySource::Shm(FrameInfo {
+                        fd,
+                        width,
+                        height,
+                        stride,
+                    }),
+                );
             }
         }
     }
 
     fn handle_buf(&mut self, qh: &QueueHandle<Self>, msg: BufMsg) {
-        let BufMsg { slot, width, height, stride, modifier, fd } = msg;
+        let BufMsg {
+            slot,
+            width,
+            height,
+            stride,
+            modifier,
+            fd,
+        } = msg;
         if let Some(old) = self.slots.remove(&slot) {
             old.buffer.destroy();
             unsafe { libc::close(old.fd) };
@@ -344,7 +408,15 @@ impl State {
         );
 
         println!("[socket] registered capture slot {slot} {width}x{height} stride={stride} modifier={modifier}");
-        self.slots.insert(slot, SlotBuffer { buffer, fd, width, height });
+        self.slots.insert(
+            slot,
+            SlotBuffer {
+                buffer,
+                fd,
+                width,
+                height,
+            },
+        );
         self.set_current_source(qh, DisplaySource::Slot(slot));
     }
 
@@ -518,10 +590,51 @@ impl State {
 
         let (bw, bh) = (width as i32, height as i32);
         debug_paint::fill_bg(&mut pixels, stride, width, height);
-        debug_paint::draw_row(&mut pixels, stride, bw, bh, 10, 8, 'D', display_fps as u32, None);
-        debug_paint::draw_row(&mut pixels, stride, bw, bh, 10, 40, 'C', capture_fps as u32, None);
-        debug_paint::draw_row(&mut pixels, stride, bw, bh, 10, 72, 'F', last_ms.round() as u32, Some(peak_ms.round() as u32));
-        debug_paint::draw_sparkline(&mut pixels, stride, bw, bh, 10, 100, width - 20, 14, &sparkline, 33.3);
+        debug_paint::draw_row(
+            &mut pixels,
+            stride,
+            bw,
+            bh,
+            10,
+            8,
+            'D',
+            display_fps as u32,
+            None,
+        );
+        debug_paint::draw_row(
+            &mut pixels,
+            stride,
+            bw,
+            bh,
+            10,
+            40,
+            'C',
+            capture_fps as u32,
+            None,
+        );
+        debug_paint::draw_row(
+            &mut pixels,
+            stride,
+            bw,
+            bh,
+            10,
+            72,
+            'F',
+            last_ms.round() as u32,
+            Some(peak_ms.round() as u32),
+        );
+        debug_paint::draw_sparkline(
+            &mut pixels,
+            stride,
+            bw,
+            bh,
+            10,
+            100,
+            width - 20,
+            14,
+            &sparkline,
+            33.3,
+        );
 
         let memfd = unsafe { libc::memfd_create(c"wallpiper-debug-overlay".as_ptr(), 0) };
         if memfd < 0 {
@@ -541,7 +654,15 @@ impl State {
 
         let borrowed_fd = unsafe { BorrowedFd::borrow_raw(memfd) };
         let pool = shm.create_pool(borrowed_fd, (stride * height) as i32, qh, GlobalData);
-        let buffer = pool.create_buffer(0, width as i32, height as i32, stride as i32, wl_shm::Format::Argb8888, qh, GlobalData);
+        let buffer = pool.create_buffer(
+            0,
+            width as i32,
+            height as i32,
+            stride as i32,
+            wl_shm::Format::Argb8888,
+            qh,
+            GlobalData,
+        );
 
         surface.attach(Some(&buffer), 0, 0);
         surface.damage_buffer(0, 0, width as i32, height as i32);
@@ -757,7 +878,15 @@ mod debug_paint {
     const BAR_OK: Rgba = [130, 190, 255, 255];
     const BAR_WARN: Rgba = [255, 90, 70, 255];
 
-    fn put_pixel(pixels: &mut [u8], stride: usize, buf_w: i32, buf_h: i32, x: i32, y: i32, color: Rgba) {
+    fn put_pixel(
+        pixels: &mut [u8],
+        stride: usize,
+        buf_w: i32,
+        buf_h: i32,
+        x: i32,
+        y: i32,
+        color: Rgba,
+    ) {
         if x < 0 || y < 0 || x >= buf_w || y >= buf_h {
             return;
         }
@@ -771,7 +900,17 @@ mod debug_paint {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn fill_rect(pixels: &mut [u8], stride: usize, buf_w: i32, buf_h: i32, x: i32, y: i32, w: i32, h: i32, color: Rgba) {
+    fn fill_rect(
+        pixels: &mut [u8],
+        stride: usize,
+        buf_w: i32,
+        buf_h: i32,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        color: Rgba,
+    ) {
         for row in y..y + h {
             for col in x..x + w {
                 put_pixel(pixels, stride, buf_w, buf_h, col, row, color);
@@ -780,7 +919,17 @@ mod debug_paint {
     }
 
     pub fn fill_bg(pixels: &mut [u8], stride: usize, buf_w: usize, buf_h: usize) {
-        fill_rect(pixels, stride, buf_w as i32, buf_h as i32, 0, 0, buf_w as i32, buf_h as i32, BG);
+        fill_rect(
+            pixels,
+            stride,
+            buf_w as i32,
+            buf_h as i32,
+            0,
+            0,
+            buf_w as i32,
+            buf_h as i32,
+            BG,
+        );
     }
 
     // Standard 7-segment encoding, bit0=a(top) 1=b(top-right) 2=c(bottom-right) 3=d(bottom)
@@ -799,34 +948,109 @@ mod debug_paint {
     ];
 
     #[allow(clippy::too_many_arguments)]
-    fn draw_digit(pixels: &mut [u8], stride: usize, buf_w: i32, buf_h: i32, x: i32, y: i32, digit: u8, cell_w: i32, cell_h: i32, thick: i32, color: Rgba) {
+    fn draw_digit(
+        pixels: &mut [u8],
+        stride: usize,
+        buf_w: i32,
+        buf_h: i32,
+        x: i32,
+        y: i32,
+        digit: u8,
+        cell_w: i32,
+        cell_h: i32,
+        thick: i32,
+        color: Rgba,
+    ) {
         let bits = SEGMENTS[(digit % 10) as usize];
         let half = cell_h / 2;
         if bits & 0b0000001 != 0 {
-            fill_rect(pixels, stride, buf_w, buf_h, x, y, cell_w, thick, color); // a
+            fill_rect(pixels, stride, buf_w, buf_h, x, y, cell_w, thick, color);
+            // a
         }
         if bits & 0b0000010 != 0 {
-            fill_rect(pixels, stride, buf_w, buf_h, x + cell_w - thick, y, thick, half, color); // b
+            fill_rect(
+                pixels,
+                stride,
+                buf_w,
+                buf_h,
+                x + cell_w - thick,
+                y,
+                thick,
+                half,
+                color,
+            ); // b
         }
         if bits & 0b0000100 != 0 {
-            fill_rect(pixels, stride, buf_w, buf_h, x + cell_w - thick, y + half, thick, half, color); // c
+            fill_rect(
+                pixels,
+                stride,
+                buf_w,
+                buf_h,
+                x + cell_w - thick,
+                y + half,
+                thick,
+                half,
+                color,
+            ); // c
         }
         if bits & 0b0001000 != 0 {
-            fill_rect(pixels, stride, buf_w, buf_h, x, y + cell_h - thick, cell_w, thick, color); // d
+            fill_rect(
+                pixels,
+                stride,
+                buf_w,
+                buf_h,
+                x,
+                y + cell_h - thick,
+                cell_w,
+                thick,
+                color,
+            ); // d
         }
         if bits & 0b0010000 != 0 {
-            fill_rect(pixels, stride, buf_w, buf_h, x, y + half, thick, half, color); // e
+            fill_rect(
+                pixels,
+                stride,
+                buf_w,
+                buf_h,
+                x,
+                y + half,
+                thick,
+                half,
+                color,
+            ); // e
         }
         if bits & 0b0100000 != 0 {
             fill_rect(pixels, stride, buf_w, buf_h, x, y, thick, half, color); // f
         }
         if bits & 0b1000000 != 0 {
-            fill_rect(pixels, stride, buf_w, buf_h, x, y + half - thick / 2, cell_w, thick, color); // g
+            fill_rect(
+                pixels,
+                stride,
+                buf_w,
+                buf_h,
+                x,
+                y + half - thick / 2,
+                cell_w,
+                thick,
+                color,
+            ); // g
         }
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn draw_number(pixels: &mut [u8], stride: usize, buf_w: i32, buf_h: i32, x: i32, y: i32, value: u32, cell_w: i32, cell_h: i32, thick: i32, color: Rgba) -> i32 {
+    fn draw_number(
+        pixels: &mut [u8],
+        stride: usize,
+        buf_w: i32,
+        buf_h: i32,
+        x: i32,
+        y: i32,
+        value: u32,
+        cell_w: i32,
+        cell_h: i32,
+        thick: i32,
+        color: Rgba,
+    ) -> i32 {
         let value = value.min(999);
         let digits: Vec<u8> = if value == 0 {
             vec![0]
@@ -843,7 +1067,9 @@ mod debug_paint {
         let gap = thick;
         let mut cursor = x;
         for d in digits {
-            draw_digit(pixels, stride, buf_w, buf_h, cursor, y, d, cell_w, cell_h, thick, color);
+            draw_digit(
+                pixels, stride, buf_w, buf_h, cursor, y, d, cell_w, cell_h, thick, color,
+            );
             cursor += cell_w + gap;
         }
         cursor - x
@@ -860,7 +1086,17 @@ mod debug_paint {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn draw_letter(pixels: &mut [u8], stride: usize, buf_w: i32, buf_h: i32, x: i32, y: i32, ch: char, scale: i32, color: Rgba) {
+    fn draw_letter(
+        pixels: &mut [u8],
+        stride: usize,
+        buf_w: i32,
+        buf_h: i32,
+        x: i32,
+        y: i32,
+        ch: char,
+        scale: i32,
+        color: Rgba,
+    ) {
         let Some(rows) = glyph_5x5(ch) else {
             return;
         };
@@ -884,26 +1120,75 @@ mod debug_paint {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn draw_row(pixels: &mut [u8], stride: usize, buf_w: i32, buf_h: i32, x: i32, y: i32, label: char, primary: u32, secondary: Option<u32>) {
+    pub fn draw_row(
+        pixels: &mut [u8],
+        stride: usize,
+        buf_w: i32,
+        buf_h: i32,
+        x: i32,
+        y: i32,
+        label: char,
+        primary: u32,
+        secondary: Option<u32>,
+    ) {
         draw_letter(pixels, stride, buf_w, buf_h, x, y + 2, label, 3, PRIMARY);
         let number_x = x + 22;
-        let consumed = draw_number(pixels, stride, buf_w, buf_h, number_x, y, primary, 12, 20, 3, PRIMARY);
+        let consumed = draw_number(
+            pixels, stride, buf_w, buf_h, number_x, y, primary, 12, 20, 3, PRIMARY,
+        );
         if let Some(secondary) = secondary {
-            draw_number(pixels, stride, buf_w, buf_h, number_x + consumed + 10, y + 7, secondary, 8, 13, 2, SECONDARY);
+            draw_number(
+                pixels,
+                stride,
+                buf_w,
+                buf_h,
+                number_x + consumed + 10,
+                y + 7,
+                secondary,
+                8,
+                13,
+                2,
+                SECONDARY,
+            );
         }
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn draw_sparkline(pixels: &mut [u8], stride: usize, buf_w: i32, buf_h: i32, x: i32, y: i32, w: usize, h: i32, values: &[f64], warn_threshold_ms: f64) {
+    pub fn draw_sparkline(
+        pixels: &mut [u8],
+        stride: usize,
+        buf_w: i32,
+        buf_h: i32,
+        x: i32,
+        y: i32,
+        w: usize,
+        h: i32,
+        values: &[f64],
+        warn_threshold_ms: f64,
+    ) {
         const SAMPLES: usize = 40;
         const MAX_SCALE_MS: f64 = 40.0;
 
         let slot_w = ((w / SAMPLES).max(1)) as i32;
         for (i, &delta_ms) in values.iter().enumerate() {
             let bar_h = ((delta_ms / MAX_SCALE_MS).clamp(0.02, 1.0) * h as f64) as i32;
-            let color = if delta_ms > warn_threshold_ms { BAR_WARN } else { BAR_OK };
+            let color = if delta_ms > warn_threshold_ms {
+                BAR_WARN
+            } else {
+                BAR_OK
+            };
             let bar_x = x + i as i32 * slot_w;
-            fill_rect(pixels, stride, buf_w, buf_h, bar_x, y + h - bar_h, (slot_w - 1).max(1), bar_h, color);
+            fill_rect(
+                pixels,
+                stride,
+                buf_w,
+                buf_h,
+                bar_x,
+                y + h - bar_h,
+                (slot_w - 1).max(1),
+                bar_h,
+                color,
+            );
         }
     }
 }

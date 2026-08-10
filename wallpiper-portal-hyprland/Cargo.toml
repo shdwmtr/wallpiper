@@ -8,7 +8,7 @@ name = "wallpiper-portal-hyprland"
 path = "src/main.rs"
 
 [dependencies]
-wallpiper-protocol = { path = "../wallpiper-protocol" }
+wallpiper-protocol = { path = "../crates/wallpiper-protocol" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 smithay-client-toolkit = "0.21"

@@ -4,7 +4,7 @@ DEPFLAGS := -MMD -MP
 TARGET_DIR := ../target/release
 OBJ_DIR := ../target/objects
 
-SRCS := $(shell find we-wallpaper-change-hook we-swapchain-interpose -name '*.c')
+SRCS := $(shell find we-swapchain-interpose -name '*.c')
 OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
 DEPS := $(OBJS:.o=.d)
 SO := $(TARGET_DIR)/libwallpiper-preload.so

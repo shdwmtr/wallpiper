@@ -21,6 +21,7 @@ struct CaptureSlot {
     cmd: vk::CommandBuffer,
     fence: vk::Fence,
     fence_pending: bool,
+    ready_semaphore: vk::Semaphore,
     ownership: SlotOwnership,
     buf_sent: bool,
     stride: u32,
@@ -272,6 +273,25 @@ impl WallpiperDeviceInfo {
             }
         };
 
+        let mut export_semaphore_info = vk::ExportSemaphoreCreateInfo::builder()
+            .handle_types(vk::ExternalSemaphoreHandleTypeFlags::SYNC_FD);
+        let semaphore_info =
+            vk::SemaphoreCreateInfo::builder().push_next(&mut export_semaphore_info);
+        let ready_semaphore = match unsafe { self.device.create_semaphore(&semaphore_info, None) }
+        {
+            Ok(s) => s,
+            Err(e) => {
+                log!("create_semaphore (export) failed: {e:?}");
+                unsafe {
+                    self.device.destroy_fence(fence, None);
+                    self.device.destroy_command_pool(pool, None);
+                    self.device.destroy_image(image, None);
+                    self.device.free_memory(memory, None);
+                }
+                return None;
+            }
+        };
+
         log!(
             "capture slot created: image={image:?} memory={memory:?} {}x{} format={format:?} stride={stride} modifier={modifier} queue_family={queue_family_index}",
             extent.width, extent.height
@@ -284,6 +304,7 @@ impl WallpiperDeviceInfo {
             cmd,
             fence,
             fence_pending: false,
+            ready_semaphore,
             ownership: SlotOwnership::NeverWritten,
             buf_sent: false,
             stride,
@@ -298,6 +319,7 @@ impl WallpiperDeviceInfo {
                     .device
                     .wait_for_fences(&[slot.fence], true, SLOT_FENCE_TIMEOUT_NS);
             }
+            self.device.destroy_semaphore(slot.ready_semaphore, None);
             self.device.destroy_fence(slot.fence, None);
             self.device.destroy_command_pool(slot.pool, None);
             self.device.destroy_image(slot.image, None);
@@ -438,7 +460,9 @@ impl WallpiperDeviceInfo {
         if let Err(e) = unsafe {
             self.device.queue_submit(
                 queue,
-                &[*vk::SubmitInfo::builder().command_buffers(&[cmd])],
+                &[*vk::SubmitInfo::builder()
+                    .command_buffers(&[cmd])
+                    .signal_semaphores(&[slot.ready_semaphore])],
                 slot.fence,
             )
         } {
@@ -571,9 +595,22 @@ impl WallpiperDeviceInfo {
         slot.ownership = SlotOwnership::ReleasedToForeign;
         slot.fence_pending = true;
         let need_buf_msg = !slot.buf_sent;
-        let (stride, modifier, memory) = (slot.stride, slot.modifier, slot.memory);
+        let (stride, modifier, memory, ready_semaphore) =
+            (slot.stride, slot.modifier, slot.memory, slot.ready_semaphore);
 
         drop(map);
+
+        let sync_get_fd_info = vk::SemaphoreGetFdInfoKHR::builder()
+            .semaphore(ready_semaphore)
+            .handle_type(vk::ExternalSemaphoreHandleTypeFlags::SYNC_FD);
+        let mut sync_fd: RawFd = -1;
+        let sync_res = unsafe {
+            (self.procs.get_semaphore_fd_khr)(self.device.handle(), &*sync_get_fd_info, &mut sync_fd)
+        };
+        if sync_res != vk::Result::SUCCESS {
+            log!("vkGetSemaphoreFdKHR failed: {sync_res:?}, consumer will sample unsynchronized");
+            sync_fd = -1;
+        }
 
         if need_buf_msg {
             let get_fd_info = vk::MemoryGetFdInfoKHR::builder()
@@ -585,6 +622,9 @@ impl WallpiperDeviceInfo {
             };
             if res != vk::Result::SUCCESS {
                 log!("vkGetMemoryFdKHR failed: {res:?}");
+                if sync_fd >= 0 {
+                    unsafe { libc::close(sync_fd) };
+                }
                 return;
             }
             let sent = self.capture_link.notify_buffer(BufferAnnounce {
@@ -595,6 +635,7 @@ impl WallpiperDeviceInfo {
                 stride,
                 modifier,
                 fd,
+                sync_fd,
             });
             if sent {
                 if let Some(state) = self.swapchains.lock().unwrap().get_mut(&swapchain.as_raw()) {
@@ -604,7 +645,7 @@ impl WallpiperDeviceInfo {
                 }
             }
         } else {
-            self.capture_link.notify_frame(slot_idx as u32);
+            self.capture_link.notify_frame(slot_idx as u32, sync_fd);
         }
     }
 }
