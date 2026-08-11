@@ -33,6 +33,7 @@ Wallpiper supports the following DE/WM(s) through the following portals. Jump to
 * [wallpiper-portal-gnome](#gnome-mutter-portal)
 * [wallpiper-portal-kde](#kde-plasma-portal)
 * [wallpiper-portal-hyprland](#hyprland-portal)
+* [wallpiper-portal-i3](#i3wm-portal)
 
 ## GNOME (Mutter) portal
 
@@ -116,13 +117,28 @@ None beyond the [core dependencies](#dependencies).
 $ just build-cargo
 ```
 
+## i3wm portal
+
+A standalone Rust binary (`wallpiper-portal-i3`) that talks to the X server directly.
+No shell extension, and no install step.
+
+### Dependencies
+
+None beyond the [core dependencies](#dependencies).
+
+### Build
+
+```sh
+$ just build-cargo
+```
+
 ## Launching Wallpiper
 
 `wallpiperd` has no persistent configuration, all variability is mutable through environment variables. 
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `WALLPIPER_PORTAL` | *(required)* | Which portal to use: `hyprland`, `gnome`, or `kde` |
+| `WALLPIPER_PORTAL` | *(required)* | Which portal to use: `hyprland`, `gnome`, `kde`, `i3` |
 | `WALLPIPER_STATE_FILE` | *(required)* | Full path of the file to persist the selected wallpaper to (created if missing) |
 | `WALLPIPER_STEAM_ROOT` | auto-detected (`~/.local/share/Steam`, `~/.steam/steam`, `~/.steam/root`, or the Flatpak path) | Your Steam library root |
 | `WALLPIPER_PROTON_BIN` | auto-detected, first `compatibilitytools.d/*/proton` with "GE" in the name, else any | Path to the `proton` binary to run Wallpaper Engine with |
@@ -150,6 +166,7 @@ pause
 resume
 mute
 unmute
+volume <0-100>
 debug
 nodebug
 ```
