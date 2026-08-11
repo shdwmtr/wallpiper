@@ -182,10 +182,6 @@ list-properties <workshop_id> [-j|output as JSON]
 ./target/release/wallpiperd list-properties 2207463614 -j
 ```
 
-## Known Limitations
-
-* wallpiper assumes a mutable /tmp 
-
 ## License
 
 Apache-2.0 see [`LICENSE.md`](./LICENSE.md).
