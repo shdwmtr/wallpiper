@@ -4,7 +4,7 @@ A runtime-interpose translation layer for [Wallpaper Engine](https://www.wallpap
 
 It's exactly what you'd expect, opposed to existing libraries like [linux-wallpaperengine](https://github.com/Almamu/linux-wallpaperengine) (arguably misled by AI), wallpiper runs Wallpaper Engine natively without re-inventing the wheel. 
 
-If it works on Windows, it works on Linux. no headaches. 
+Given Proton GE is capable of it, wallpiper natively supports all existing Wallpaper Engine user wallpapers. 
 
 ## Dependencies
 
