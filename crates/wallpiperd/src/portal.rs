@@ -51,7 +51,7 @@ pub fn spawn_portal(strategy: &PortalSpawnStrategy) {
         PortalSpawnStrategy::Spawn { name, binary } => (name, binary),
         PortalSpawnStrategy::ExternallyManaged { name } => {
             println!(
-                "portal {name} is externally managed, not spawning — waiting for its ctl socket to appear"
+                "portal {name} is externally managed, not spawning: waiting for its ctl socket to appear"
             );
             return;
         }

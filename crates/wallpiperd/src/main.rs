@@ -8,6 +8,7 @@ mod renderer;
 mod selection;
 mod signals;
 mod vk_layer;
+mod wallpaper;
 mod wine;
 
 use std::time::Duration;

@@ -48,7 +48,7 @@ fn steam_root_result() -> Result<String, String> {
         .cloned()
         .ok_or_else(|| {
             format!(
-                "could not find a Steam install — set WALLPIPER_STEAM_ROOT to its path \
+                "could not find a Steam install. set WALLPIPER_STEAM_ROOT to its path \
                  (checked {})",
                 candidates.join(", ")
             )
@@ -70,6 +70,13 @@ pub fn compatdata() -> String {
     compatdata_result().unwrap_or_else(|e| panic!("{e}"))
 }
 
+pub fn workshop_content_dir_result() -> Result<String, String> {
+    Ok(format!(
+        "{}/steamapps/workshop/content/{WALLPAPER_ENGINE_APP_ID}",
+        steam_root_result()?
+    ))
+}
+
 fn we_exe_result() -> Result<String, String> {
     if let Some(exe) = env_path("WALLPIPER_WE_EXE") {
         return Ok(exe);
@@ -80,7 +87,7 @@ fn we_exe_result() -> Result<String, String> {
     );
     if !std::path::Path::new(&path).is_file() {
         return Err(format!(
-            "Wallpaper Engine executable not found at {path} — set WALLPIPER_WE_EXE to its path"
+            "Wallpaper Engine executable not found at {path}. set WALLPIPER_WE_EXE to its path"
         ));
     }
     Ok(path)
@@ -113,7 +120,7 @@ fn proton_bin_result() -> Result<String, String> {
     });
     candidates.into_iter().next().ok_or_else(|| {
         format!(
-            "no Proton build found under {tools_dir} — install Proton GE, or set \
+            "no Proton build found under {tools_dir}. Install Proton GE, or set \
              WALLPIPER_PROTON_BIN to a proton binary's path"
         )
     })
@@ -124,12 +131,12 @@ pub fn proton_bin() -> String {
 }
 
 pub fn runtime_dir() -> String {
-    "/tmp/wallpiper".to_string()
+    env_path("WALLPIPER_RUNTIME_DIR").unwrap_or_else(|| "/tmp/wallpiper".to_string())
 }
 
 pub fn state_file_result() -> Result<String, String> {
     env_path("WALLPIPER_STATE_FILE").ok_or_else(|| {
-        "WALLPIPER_STATE_FILE not set — export WALLPIPER_STATE_FILE=<path> naming where to \
+        "WALLPIPER_STATE_FILE not set. export WALLPIPER_STATE_FILE=<path> naming where to \
          persist the selected wallpaper (e.g. WALLPIPER_STATE_FILE=$HOME/.local/share/wallpiper/last_selection.json)"
             .to_string()
     })
@@ -141,7 +148,7 @@ pub fn state_file() -> String {
 
 fn portal_name_result() -> Result<String, String> {
     std::env::var("WALLPIPER_PORTAL").map_err(|_| {
-        "WALLPIPER_PORTAL not set — export WALLPIPER_PORTAL=<name> naming an installed \
+        "WALLPIPER_PORTAL not set. export WALLPIPER_PORTAL=<name> naming an installed \
          wallpiper-portal-<name> binary (e.g. WALLPIPER_PORTAL=hyprland)"
             .to_string()
     })
@@ -174,7 +181,7 @@ pub fn wineserver_bin() -> String {
 fn report(label: &str, result: Result<String, String>) {
     match result {
         Ok(value) => println!("  {label}: {value}"),
-        Err(msg) => println!("  {label}: ERROR — {msg}"),
+        Err(msg) => println!("  {label}: ERROR {msg}"),
     }
 }
 
@@ -188,7 +195,8 @@ pub fn describe() {
     report("proton binary", proton_bin_result());
     report("wallpaper engine exe", we_exe_result());
     report("compatdata", compatdata_result());
-    report("runtime dir", Ok(runtime_dir()));
+    report("workshop content dir", workshop_content_dir_result());
+    report("runtime dir (WALLPIPER_RUNTIME_DIR)", Ok(runtime_dir()));
     report("state file (WALLPIPER_STATE_FILE)", state_file_result());
     report("portal (WALLPIPER_PORTAL)", portal_name_result());
 }

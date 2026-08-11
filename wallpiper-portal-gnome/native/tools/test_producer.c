@@ -1,14 +1,3 @@
-/*
- * Standalone test producer — no relation to the extension or the
- * wallpiper-gnome GI library, no shared headers with either. Sends one
- * synthetic frame over the real capture-socket wire format
- * (crates/wallpiper-protocol/src/lib.rs, CAPTURE_SOCKET_PATH) so the
- * portal's capture listener can be exercised without a real
- * wallpiperd/Vulkan-capture-layer pipeline.
- *
- * Usage: wallpiper-test-producer [slot]
- */
-
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
