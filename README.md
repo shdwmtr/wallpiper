@@ -6,15 +6,14 @@ It's exactly what you'd expect, opposed to existing libraries like [linux-wallpa
 
 Given Proton GE is capable of it, wallpiper natively supports all existing Wallpaper Engine user wallpapers. 
 
-## Dependencies
+## System Requirements
 
-Core dependencies, needed regardless of which compositor portal you're building:
+Compile time core dependencies, needed regardless of which compositor portal you're building. There are no runtime dependencies. 
 
-- [Just](https://github.com/casey/just)
-- Rust
-- GNU GCC
+- Just
+- Rust >= 1.87
+- GNU GCC >= 4.7 (C99, `__atomic` builtins)
 - Make
-- CMake
 
 On Arch Linux:
 
@@ -27,13 +26,22 @@ $ pacman -S just rustup base-devel
 Each portal has its own additional dependencies, build step, and install step. See its section
 below.
 
+## Installation
+
+Wallpiper supports the following DE/WM(s) through the following portals. Jump to whatever section is relevant to you. 
+
+* [wallpiper-portal-gnome](#gnome-mutter-portal)
+* [wallpiper-portal-kde](#kde-plasma-portal)
+* [wallpiper-portal-hyprland](#hyprland-portal)
+
 ## GNOME (Mutter) portal
 
 Implemented as an in-process GObject-Introspection library driven by a GNOME Shell extension.
 
 ### Dependencies
 
-- `meson` and `ninja`
+- Meson
+- Ninja
 - `libmutter-18`, `mutter-cogl-18`, `mutter-clutter-18`, `gobject-2.0`, `gio-unix-2.0`, `gbm`, `egl`, `libdrm`
 - `gobject-introspection` (provides `g-ir-scanner`/`g-ir-compiler`, used to generate the typelib)
 
@@ -64,10 +72,10 @@ Implemented as a Qt Quick/QML plugin, installed as a Plasma 6 Wallpaper KPackage
 
 ### Dependencies
 
-- `cmake`
+- cmake >= 3.16
 - ECM (extra-cmake-modules)
-- Qt6 (`Core`, `Gui`, `Qml`, `Quick`) >= 6.7
-- `egl`
+- Qt6 (Core, Gui, Qml, Quick) >= 6.7
+- EGL
 - `kpackagetool6`, for installing the wallpaper plugin
 
 On Arch Linux:
