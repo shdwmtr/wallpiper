@@ -21,7 +21,7 @@ pub enum PortalSpawnStrategy {
 
 pub fn portal_spawn_strategy(name: &str) -> PortalSpawnStrategy {
     match name {
-        "kde" => PortalSpawnStrategy::ExternallyManaged {
+        "kde" | "gnome" => PortalSpawnStrategy::ExternallyManaged {
             name: name.to_string(),
         },
         _ => PortalSpawnStrategy::Spawn {

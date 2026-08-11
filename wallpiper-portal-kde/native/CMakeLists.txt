@@ -30,12 +30,12 @@ qt_add_qml_module(wallpiper_capture_plugin
         include/egl_dmabuf_importer.h
         include/capture_item.h
 
-        src/protocol.cpp
-        src/capture_socket.cpp
-        src/ctl_listener.cpp
-        src/capture_coordinator.cpp
-        src/egl_dmabuf_importer.cpp
-        src/capture_item.cpp
+        src/protocol.cc
+        src/capture_socket.cc
+        src/ctl_listener.cc
+        src/capture_coordinator.cc
+        src/egl_dmabuf_importer.cc
+        src/capture_item.cc
 )
 
 target_include_directories(wallpiper_capture_plugin PRIVATE

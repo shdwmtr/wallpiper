@@ -192,8 +192,8 @@ mod get_instance_proc_addr {
             let get_instance_proc_addr: vk::PFN_vkGetInstanceProcAddr =
                 unsafe { std::mem::transmute(get_instance_proc_addr) };
             assert_eq!(
-                get_instance_proc_addr,
-                entry.static_fn().get_instance_proc_addr
+                get_instance_proc_addr as usize,
+                entry.static_fn().get_instance_proc_addr as usize
             );
         }
 
@@ -588,7 +588,7 @@ mod get_instance_proc_addr {
             let actual_new_command = unsafe {
                 entry.get_instance_proc_addr(instance.handle(), new_command_name_cstr.as_ptr())
             };
-            assert_eq!(actual_new_command.unwrap(), test_command);
+            assert_eq!(actual_new_command.unwrap() as usize, test_command as usize);
         }
 
         #[test]
@@ -649,7 +649,7 @@ mod get_instance_proc_addr {
             .expect(
                 "vkCreateInstance should be a valid function pointer with an invalid instance.",
             );
-            assert_eq!(expected, actual);
+            assert_eq!(expected as usize, actual as usize);
         }
     }
 

@@ -188,8 +188,8 @@ fn test_declare_introspection_queries_should_just_forward_to_global() {
             .return_const(fake_create_instance_fp);
 
         assert_eq!(
-            unsafe { vkGetInstanceProcAddr(instance, name.as_ptr()) },
-            fake_create_instance_fp
+            unsafe { vkGetInstanceProcAddr(instance, name.as_ptr()) }.map(|fp| fp as usize),
+            fake_create_instance_fp.map(|fp| fp as usize)
         );
     }
     {
@@ -223,8 +223,8 @@ fn test_declare_introspection_queries_should_just_forward_to_global() {
             .return_const(fake_allocate_memory_fp);
 
         assert_eq!(
-            unsafe { vkGetDeviceProcAddr(device, name.as_ptr()) },
-            fake_allocate_memory_fp
+            unsafe { vkGetDeviceProcAddr(device, name.as_ptr()) }.map(|fp| fp as usize),
+            fake_allocate_memory_fp.map(|fp| fp as usize)
         );
     }
 }

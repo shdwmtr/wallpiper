@@ -2,7 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_DIR="$SCRIPT_DIR/build"
+NATIVE_DIR="$SCRIPT_DIR/native"
+BUILD_DIR="$SCRIPT_DIR/../target/kde"
 
 QT_PREFIX=""
 if command -v qmake6 >/dev/null 2>&1; then
@@ -16,7 +17,7 @@ if [ -z "$QT_PREFIX" ]; then
 fi
 
 echo "==> configuring (Qt install prefix: ${QT_PREFIX:-<default>})"
-cmake -S "$SCRIPT_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release ${QT_PREFIX:+-DCMAKE_INSTALL_PREFIX="$QT_PREFIX"}
+cmake -S "$NATIVE_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release ${QT_PREFIX:+-DCMAKE_INSTALL_PREFIX="$QT_PREFIX"}
 
 echo "==> building"
 cmake --build "$BUILD_DIR" --parallel
@@ -31,6 +32,6 @@ echo "==> installing QML plugin (needs root for the system Qt QML dir)"
 sudo cmake --install "$BUILD_DIR"
 
 echo "==> installing/upgrading the Plasma Wallpaper KPackage"
-if ! kpackagetool6 --type Plasma/Wallpaper --upgrade "$SCRIPT_DIR/kpackage" 2>/dev/null; then
-    kpackagetool6 --type Plasma/Wallpaper --install "$SCRIPT_DIR/kpackage"
+if ! kpackagetool6 --type Plasma/Wallpaper --upgrade "$SCRIPT_DIR/extension" 2>/dev/null; then
+    kpackagetool6 --type Plasma/Wallpaper --install "$SCRIPT_DIR/extension"
 fi

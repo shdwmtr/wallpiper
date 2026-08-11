@@ -1,0 +1,7 @@
+{
+    "uuid": "wallpiper-gnome@wallpiper.dev",
+    "name": "Wallpiper",
+    "description": "Zero-copy DMA-BUF live wallpaper portal for GNOME Shell, driven by wallpiperd.",
+    "shell-version": ["50"],
+    "url": "https://github.com/wallpiper/wallpiper"
+}
