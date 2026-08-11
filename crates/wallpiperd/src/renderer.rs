@@ -61,6 +61,7 @@ pub fn spawn_renderer(file: &str, location: &str, monitor: MonitorGeometry) {
         .env("STEAM_COMPAT_CLIENT_INSTALL_PATH", config::steam_root())
         .env("STEAM_COMPAT_DATA_PATH", config::compatdata())
         .env("LD_PRELOAD", config::preload_paths())
+        .env("WALLPIPER_GUARDIAN_PID", std::process::id().to_string())
         .env("VK_ADD_LAYER_PATH", config::vk_layer_path())
         .env("VK_INSTANCE_LAYERS", VK_CAPTURE_LAYER_NAME)
         .env("WALLPIPER_MONITOR_X", monitor.x.to_string())
