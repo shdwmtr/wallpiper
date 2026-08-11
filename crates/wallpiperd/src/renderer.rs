@@ -4,6 +4,7 @@ use std::process::{Command, Stdio};
 
 use wallpiper_protocol::MonitorGeometry;
 
+use crate::audio;
 use crate::config;
 use crate::process::{find_renderer_pid, find_renderer_pids_for_tag};
 use crate::vk_layer::VK_CAPTURE_LAYER_NAME;
@@ -29,7 +30,7 @@ pub fn set_paused(paused: bool) {
     );
 }
 
-pub fn spawn_renderer(file: &str, location: &str, monitor: MonitorGeometry) {
+pub fn spawn_renderer(file: &str, location: &str, monitor: MonitorGeometry, volume: u8, muted: bool) {
     let tag = tag_for(location);
     println!(
         "spawning renderer: file={file} location={location} tag={tag} {}x{}",
@@ -84,11 +85,16 @@ pub fn spawn_renderer(file: &str, location: &str, monitor: MonitorGeometry) {
 
     match cmd.spawn() {
         Ok(child) => println!("spawned proton wrapper pid={}", child.id()),
-        Err(e) => println!("failed to spawn: {e}"),
+        Err(e) => {
+            println!("failed to spawn: {e}");
+            return;
+        }
     }
+
+    audio::apply_saved_state(volume, muted);
 }
 
-pub fn swap_renderer(file: &str, location: &str, monitor: MonitorGeometry) {
+pub fn swap_renderer(file: &str, location: &str, monitor: MonitorGeometry, volume: u8, muted: bool) {
     let tag = tag_for(location);
 
     let existing = find_renderer_pids_for_tag(&tag);
@@ -100,5 +106,5 @@ pub fn swap_renderer(file: &str, location: &str, monitor: MonitorGeometry) {
         );
     }
 
-    spawn_renderer(file, location, monitor);
+    spawn_renderer(file, location, monitor, volume, muted);
 }

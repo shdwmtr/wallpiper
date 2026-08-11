@@ -3,6 +3,8 @@ use std::io::{BufRead, BufReader, Write};
 use std::os::unix::io::RawFd;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::mpsc;
+
+pub mod debug_overlay;
 use std::time::Duration;
 
 pub const CAPTURE_SOCKET_PATH: &str = "/tmp/wallpiper-capture.sock";
@@ -87,12 +89,22 @@ pub fn bind_unix_dgram(path: &str) -> RawFd {
     let mut addr: libc::sockaddr_un = unsafe { std::mem::zeroed() };
     addr.sun_family = libc::AF_UNIX as libc::sa_family_t;
     let path_bytes = path.as_bytes();
-    assert!(path_bytes.len() < addr.sun_path.len(), "socket path too long: {path}");
+    assert!(
+        path_bytes.len() < addr.sun_path.len(),
+        "socket path too long: {path}"
+    );
     for (i, &b) in path_bytes.iter().enumerate() {
         addr.sun_path[i] = b as libc::c_char;
     }
-    let addr_len = (std::mem::size_of::<libc::sa_family_t>() + path_bytes.len() + 1) as libc::socklen_t;
-    let bind_res = unsafe { libc::bind(sock_fd, &addr as *const _ as *const libc::sockaddr, addr_len) };
+    let addr_len =
+        (std::mem::size_of::<libc::sa_family_t>() + path_bytes.len() + 1) as libc::socklen_t;
+    let bind_res = unsafe {
+        libc::bind(
+            sock_fd,
+            &addr as *const _ as *const libc::sockaddr,
+            addr_len,
+        )
+    };
     assert_eq!(
         bind_res,
         0,
@@ -232,7 +244,9 @@ impl CtlResponse {
 pub fn send_ctl_request(portal_name: &str, request: CtlRequest) -> Option<CtlResponse> {
     let stream = UnixStream::connect(ctl_socket_path(portal_name)).ok()?;
     stream.set_read_timeout(Some(Duration::from_secs(3))).ok()?;
-    stream.set_write_timeout(Some(Duration::from_secs(1))).ok()?;
+    stream
+        .set_write_timeout(Some(Duration::from_secs(1)))
+        .ok()?;
     let mut writer = stream.try_clone().ok()?;
     writer.write_all(request.encode().as_bytes()).ok()?;
     let mut reader = BufReader::new(stream);
@@ -260,7 +274,9 @@ pub fn spawn_ctl_listener(
 
         for stream in listener.incoming() {
             let Ok(mut stream) = stream else { continue };
-            let Ok(reader_stream) = stream.try_clone() else { continue };
+            let Ok(reader_stream) = stream.try_clone() else {
+                continue;
+            };
             let mut reader = BufReader::new(reader_stream);
             let mut line = String::new();
             match reader.read_line(&mut line) {
@@ -269,7 +285,11 @@ pub fn spawn_ctl_listener(
             }
 
             let Some(request) = CtlRequest::parse(&line) else {
-                let _ = stream.write_all(CtlResponse::Err("unrecognized command".to_string()).encode().as_bytes());
+                let _ = stream.write_all(
+                    CtlResponse::Err("unrecognized command".to_string())
+                        .encode()
+                        .as_bytes(),
+                );
                 continue;
             };
 
@@ -284,12 +304,19 @@ pub fn spawn_ctl_listener(
 
             let (reply_tx, reply_rx) = mpsc::channel();
             if tx.send((request, reply_tx)).is_err() {
-                let _ = stream.write_all(CtlResponse::Err("listener shutting down".to_string()).encode().as_bytes());
+                let _ = stream.write_all(
+                    CtlResponse::Err("listener shutting down".to_string())
+                        .encode()
+                        .as_bytes(),
+                );
                 continue;
             }
-            let response = reply_rx
-                .recv_timeout(Duration::from_secs(2))
-                .unwrap_or(CtlResponse::Err("timed out waiting for response".to_string()));
+            let response =
+                reply_rx
+                    .recv_timeout(Duration::from_secs(2))
+                    .unwrap_or(CtlResponse::Err(
+                        "timed out waiting for response".to_string(),
+                    ));
             let _ = stream.write_all(response.encode().as_bytes());
         }
     });

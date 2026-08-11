@@ -2,10 +2,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::config;
 
-#[derive(Serialize, Deserialize, Debug)]
+fn default_volume() -> u8 {
+    100
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Selection {
     pub file: String,
     pub location: String,
+    #[serde(default = "default_volume")]
+    pub volume: u8,
+    #[serde(default)]
+    pub muted: bool,
 }
 
 pub fn load_selection() -> Option<Selection> {
@@ -28,4 +36,17 @@ pub fn save_selection(selection: &Selection) {
     if let Err(e) = std::fs::write(&state_file, data) {
         println!("failed to write selection to {state_file}: {e}");
     }
+}
+
+pub fn update_audio_state(volume: Option<u8>, muted: Option<bool>) {
+    let Some(mut selection) = load_selection() else {
+        return;
+    };
+    if let Some(volume) = volume {
+        selection.volume = volume;
+    }
+    if let Some(muted) = muted {
+        selection.muted = muted;
+    }
+    save_selection(&selection);
 }

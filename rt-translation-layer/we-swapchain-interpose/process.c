@@ -1,6 +1,5 @@
 #include "process.h"
 
-#include <stdatomic.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -25,8 +24,8 @@ static bool read_comm(char* out, size_t out_len)
 
 bool interpose_is_target_process(void)
 {
-    static _Atomic int cached = -1;
-    int c = atomic_load_explicit(&cached, memory_order_relaxed);
+    static int cached = -1;
+    int c = __atomic_load_n(&cached, __ATOMIC_RELAXED);
     if (c != -1) {
         return c != 0;
     }
@@ -59,7 +58,7 @@ bool interpose_is_target_process(void)
         }
     }
 
-    atomic_store_explicit(&cached, result ? 1 : 0, memory_order_relaxed);
+    __atomic_store_n(&cached, result ? 1 : 0, __ATOMIC_RELAXED);
     return result;
 }
 

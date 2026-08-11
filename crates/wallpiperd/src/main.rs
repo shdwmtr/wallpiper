@@ -50,7 +50,7 @@ fn main() {
         println!("detected monitor: {monitor:?}");
         if let Some(sel) = selection::load_selection() {
             println!("restoring last selection: {sel:?}");
-            renderer::swap_renderer(&sel.file, &sel.location, monitor);
+            renderer::swap_renderer(&sel.file, &sel.location, monitor, sel.volume, sel.muted);
         }
     });
 

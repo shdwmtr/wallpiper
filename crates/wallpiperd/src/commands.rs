@@ -1,8 +1,8 @@
-use crate::audio::set_muted;
+use crate::audio;
 use crate::config::{self, FALLBACK_MONITOR};
 use crate::portal::{current_monitor, query_monitor_once, set_debug_overlay};
 use crate::renderer::{set_paused, swap_renderer};
-use crate::selection::{save_selection, Selection};
+use crate::selection::{self, save_selection, Selection};
 use crate::wallpaper::{self, Source};
 
 pub fn dispatch(args: &[&str]) -> bool {
@@ -12,8 +12,9 @@ pub fn dispatch(args: &[&str]) -> bool {
     match cmd {
         "pause" => set_paused(true),
         "resume" => set_paused(false),
-        "mute" => set_muted(true),
-        "unmute" => set_muted(false),
+        "mute" => set_mute(true),
+        "unmute" => set_mute(false),
+        "volume" => set_volume(rest),
         "debug" => set_debug_overlay(true),
         "nodebug" => set_debug_overlay(false),
         "set" => set_wallpaper(rest),
@@ -23,6 +24,21 @@ pub fn dispatch(args: &[&str]) -> bool {
         _ => return false,
     }
     true
+}
+
+fn set_mute(muted: bool) {
+    audio::set_muted(muted);
+    selection::update_audio_state(None, Some(muted));
+}
+
+fn set_volume(args: &[&str]) {
+    let Some(level) = args.first().and_then(|s| s.parse::<u32>().ok()) else {
+        println!("usage: volume <0-100>");
+        return;
+    };
+    let level = level.min(100) as u8;
+    audio::set_volume(level);
+    selection::update_audio_state(Some(level), None);
 }
 
 fn set_wallpaper(args: &[&str]) {
@@ -49,13 +65,19 @@ fn set_wallpaper(args: &[&str]) {
         return;
     }
 
+    let (volume, muted) = selection::load_selection()
+        .map(|s| (s.volume, s.muted))
+        .unwrap_or((100, false));
+
     let monitor = current_monitor()
         .or_else(|| query_monitor_once(&config::portal_name()))
         .unwrap_or(FALLBACK_MONITOR);
-    swap_renderer(&file, location, monitor);
+    swap_renderer(&file, location, monitor, volume, muted);
     save_selection(&Selection {
         file,
         location: location.to_string(),
+        volume,
+        muted,
     });
 }
 

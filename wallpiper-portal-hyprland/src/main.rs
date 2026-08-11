@@ -1,9 +1,9 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::os::unix::io::{BorrowedFd, FromRawFd, RawFd};
 use std::os::unix::net::UnixStream;
 use std::process::Command;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use serde_json::Value;
 use smithay_client_toolkit::{
@@ -34,15 +34,10 @@ use wayland_protocols::wp::viewporter::client::{
     wp_viewport::WpViewport, wp_viewporter::WpViewporter,
 };
 
+use wallpiper_protocol::debug_overlay as debug_paint;
 use wallpiper_protocol::{CtlRequest, CtlResponse, MonitorGeometry, SocketEvent};
 
 const DRM_FORMAT_XRGB8888: u32 = 0x34325258;
-
-const DEBUG_OVERLAY_WIDTH: i32 = 210;
-const DEBUG_OVERLAY_HEIGHT: i32 = 120;
-const DEBUG_REDRAW_INTERVAL: Duration = Duration::from_millis(250);
-const DEBUG_STATS_WINDOW: Duration = Duration::from_secs(3);
-const DEBUG_SPARKLINE_SAMPLES: usize = 40;
 
 #[derive(Clone, Copy)]
 struct FrameInfo {
@@ -200,9 +195,8 @@ fn main() {
         debug_shm_pool: None,
         debug_shm_buffer: None,
         debug_shm_fd: None,
-        last_debug_draw: None,
-        display_times: VecDeque::new(),
-        capture_times: VecDeque::new(),
+        debug_throttle: debug_paint::DebugThrottle::new(),
+        stats: debug_paint::FrameStats::new(),
     };
 
     let surface = state.compositor.create_surface(&qh);
@@ -301,9 +295,8 @@ struct State {
     debug_shm_pool: Option<wl_shm_pool::WlShmPool>,
     debug_shm_buffer: Option<wl_buffer::WlBuffer>,
     debug_shm_fd: Option<RawFd>,
-    last_debug_draw: Option<Instant>,
-    display_times: VecDeque<Instant>,
-    capture_times: VecDeque<Instant>,
+    debug_throttle: debug_paint::DebugThrottle,
+    stats: debug_paint::FrameStats,
 }
 
 impl State {
@@ -316,15 +309,7 @@ impl State {
     }
 
     fn handle_event(&mut self, qh: &QueueHandle<Self>, event: SocketEvent) {
-        let now = Instant::now();
-        self.capture_times.push_back(now);
-        while let Some(&front) = self.capture_times.front() {
-            if now.duration_since(front) > DEBUG_STATS_WINDOW {
-                self.capture_times.pop_front();
-            } else {
-                break;
-            }
-        }
+        self.stats.record_capture();
 
         match event {
             SocketEvent::Buf {
@@ -493,22 +478,14 @@ impl State {
             old.destroy();
         }
 
-        let now = Instant::now();
-        self.display_times.push_back(now);
-        while let Some(&front) = self.display_times.front() {
-            if now.duration_since(front) > DEBUG_STATS_WINDOW {
-                self.display_times.pop_front();
-            } else {
-                break;
-            }
-        }
+        self.stats.record_display();
     }
 
     fn set_debug_enabled(&mut self, qh: &QueueHandle<Self>, enabled: bool) {
         self.debug_enabled = enabled;
         if enabled {
             self.ensure_debug_surface(qh);
-            self.last_debug_draw = None;
+            self.debug_throttle.reset();
         } else if let Some(surface) = &self.debug_surface {
             surface.attach(None, 0, 0);
             surface.commit();
@@ -530,7 +507,7 @@ impl State {
 
         let surface = self.compositor.create_surface(qh);
         let subsurface = subcompositor.get_subsurface(&surface, layer.wl_surface(), qh, GlobalData);
-        let y = ((self.height as i32 - DEBUG_OVERLAY_HEIGHT) / 2).max(0);
+        let y = ((self.height as i32 - debug_paint::HEIGHT as i32) / 2).max(0);
         subsurface.set_position(12, y);
         subsurface.set_desync();
         surface.commit();
@@ -540,14 +517,9 @@ impl State {
     }
 
     fn maybe_redraw_debug(&mut self, qh: &QueueHandle<Self>) {
-        let now = Instant::now();
-        if let Some(last) = self.last_debug_draw {
-            if now.duration_since(last) < DEBUG_REDRAW_INTERVAL {
-                return;
-            }
+        if self.debug_throttle.should_redraw() {
+            self.draw_debug_overlay(qh);
         }
-        self.last_debug_draw = Some(now);
-        self.draw_debug_overlay(qh);
     }
 
     fn draw_debug_overlay(&mut self, qh: &QueueHandle<Self>) {
@@ -556,85 +528,10 @@ impl State {
             return;
         };
 
-        let now = Instant::now();
-        let display_fps = self
-            .display_times
-            .iter()
-            .filter(|&&t| now.duration_since(t) <= Duration::from_secs(1))
-            .count();
-        let capture_fps = self
-            .capture_times
-            .iter()
-            .filter(|&&t| now.duration_since(t) <= Duration::from_secs(1))
-            .count();
-
-        let mut deltas_ms: Vec<f64> = Vec::new();
-        for pair in self.display_times.iter().collect::<Vec<_>>().windows(2) {
-            let dt = pair[1].duration_since(*pair[0]).as_secs_f64() * 1000.0;
-            deltas_ms.push(dt);
-        }
-        let last_ms = deltas_ms.last().copied().unwrap_or(0.0);
-        let peak_ms = deltas_ms.iter().copied().fold(0.0_f64, f64::max);
-        let sparkline: Vec<f64> = deltas_ms
-            .iter()
-            .rev()
-            .take(DEBUG_SPARKLINE_SAMPLES)
-            .rev()
-            .copied()
-            .collect();
-
-        let width = DEBUG_OVERLAY_WIDTH as usize;
-        let height = DEBUG_OVERLAY_HEIGHT as usize;
+        let pixels = debug_paint::render_stats_panel(&self.stats);
+        let width = debug_paint::WIDTH as usize;
+        let height = debug_paint::HEIGHT as usize;
         let stride = width * 4;
-        let mut pixels = vec![0u8; stride * height];
-
-        let (bw, bh) = (width as i32, height as i32);
-        debug_paint::fill_bg(&mut pixels, stride, width, height);
-        debug_paint::draw_row(
-            &mut pixels,
-            stride,
-            bw,
-            bh,
-            10,
-            8,
-            'D',
-            display_fps as u32,
-            None,
-        );
-        debug_paint::draw_row(
-            &mut pixels,
-            stride,
-            bw,
-            bh,
-            10,
-            40,
-            'C',
-            capture_fps as u32,
-            None,
-        );
-        debug_paint::draw_row(
-            &mut pixels,
-            stride,
-            bw,
-            bh,
-            10,
-            72,
-            'F',
-            last_ms.round() as u32,
-            Some(peak_ms.round() as u32),
-        );
-        debug_paint::draw_sparkline(
-            &mut pixels,
-            stride,
-            bw,
-            bh,
-            10,
-            100,
-            width - 20,
-            14,
-            &sparkline,
-            33.3,
-        );
 
         let memfd = unsafe { libc::memfd_create(c"wallpiper-debug-overlay".as_ptr(), 0) };
         if memfd < 0 {
@@ -865,330 +762,3 @@ impl ProvidesRegistryState for State {
 }
 
 smithay_client_toolkit::delegate_dispatch2!(State);
-
-/// Tiny self-contained ARGB8888 software rasterizer for the "stats for nerds" overlay.
-/// No font/graphics libraries: digits are drawn as classic 7-segment shapes and the handful
-/// of row-label letters (D/C/F) as a hand-rolled 5x5 bitmap font.
-mod debug_paint {
-    type Rgba = [u8; 4];
-
-    const BG: Rgba = [20, 20, 24, 200];
-    const PRIMARY: Rgba = [255, 255, 255, 255];
-    const SECONDARY: Rgba = [150, 150, 150, 255];
-    const BAR_OK: Rgba = [130, 190, 255, 255];
-    const BAR_WARN: Rgba = [255, 90, 70, 255];
-
-    fn put_pixel(
-        pixels: &mut [u8],
-        stride: usize,
-        buf_w: i32,
-        buf_h: i32,
-        x: i32,
-        y: i32,
-        color: Rgba,
-    ) {
-        if x < 0 || y < 0 || x >= buf_w || y >= buf_h {
-            return;
-        }
-        let offset = y as usize * stride + x as usize * 4;
-        // wl_shm::Format::Argb8888 is native-endian 0xAARRGGBB - byte order [B, G, R, A] on
-        // little-endian x86/arm64, which is what this whole project already targets.
-        pixels[offset] = color[2];
-        pixels[offset + 1] = color[1];
-        pixels[offset + 2] = color[0];
-        pixels[offset + 3] = color[3];
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn fill_rect(
-        pixels: &mut [u8],
-        stride: usize,
-        buf_w: i32,
-        buf_h: i32,
-        x: i32,
-        y: i32,
-        w: i32,
-        h: i32,
-        color: Rgba,
-    ) {
-        for row in y..y + h {
-            for col in x..x + w {
-                put_pixel(pixels, stride, buf_w, buf_h, col, row, color);
-            }
-        }
-    }
-
-    pub fn fill_bg(pixels: &mut [u8], stride: usize, buf_w: usize, buf_h: usize) {
-        fill_rect(
-            pixels,
-            stride,
-            buf_w as i32,
-            buf_h as i32,
-            0,
-            0,
-            buf_w as i32,
-            buf_h as i32,
-            BG,
-        );
-    }
-
-    // Standard 7-segment encoding, bit0=a(top) 1=b(top-right) 2=c(bottom-right) 3=d(bottom)
-    // 4=e(bottom-left) 5=f(top-left) 6=g(middle).
-    const SEGMENTS: [u8; 10] = [
-        0b0111111, // 0
-        0b0000110, // 1
-        0b1011011, // 2
-        0b1001111, // 3
-        0b1100110, // 4
-        0b1101101, // 5
-        0b1111101, // 6
-        0b0000111, // 7
-        0b1111111, // 8
-        0b1101111, // 9
-    ];
-
-    #[allow(clippy::too_many_arguments)]
-    fn draw_digit(
-        pixels: &mut [u8],
-        stride: usize,
-        buf_w: i32,
-        buf_h: i32,
-        x: i32,
-        y: i32,
-        digit: u8,
-        cell_w: i32,
-        cell_h: i32,
-        thick: i32,
-        color: Rgba,
-    ) {
-        let bits = SEGMENTS[(digit % 10) as usize];
-        let half = cell_h / 2;
-        if bits & 0b0000001 != 0 {
-            fill_rect(pixels, stride, buf_w, buf_h, x, y, cell_w, thick, color);
-            // a
-        }
-        if bits & 0b0000010 != 0 {
-            fill_rect(
-                pixels,
-                stride,
-                buf_w,
-                buf_h,
-                x + cell_w - thick,
-                y,
-                thick,
-                half,
-                color,
-            ); // b
-        }
-        if bits & 0b0000100 != 0 {
-            fill_rect(
-                pixels,
-                stride,
-                buf_w,
-                buf_h,
-                x + cell_w - thick,
-                y + half,
-                thick,
-                half,
-                color,
-            ); // c
-        }
-        if bits & 0b0001000 != 0 {
-            fill_rect(
-                pixels,
-                stride,
-                buf_w,
-                buf_h,
-                x,
-                y + cell_h - thick,
-                cell_w,
-                thick,
-                color,
-            ); // d
-        }
-        if bits & 0b0010000 != 0 {
-            fill_rect(
-                pixels,
-                stride,
-                buf_w,
-                buf_h,
-                x,
-                y + half,
-                thick,
-                half,
-                color,
-            ); // e
-        }
-        if bits & 0b0100000 != 0 {
-            fill_rect(pixels, stride, buf_w, buf_h, x, y, thick, half, color); // f
-        }
-        if bits & 0b1000000 != 0 {
-            fill_rect(
-                pixels,
-                stride,
-                buf_w,
-                buf_h,
-                x,
-                y + half - thick / 2,
-                cell_w,
-                thick,
-                color,
-            ); // g
-        }
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn draw_number(
-        pixels: &mut [u8],
-        stride: usize,
-        buf_w: i32,
-        buf_h: i32,
-        x: i32,
-        y: i32,
-        value: u32,
-        cell_w: i32,
-        cell_h: i32,
-        thick: i32,
-        color: Rgba,
-    ) -> i32 {
-        let value = value.min(999);
-        let digits: Vec<u8> = if value == 0 {
-            vec![0]
-        } else {
-            let mut v = value;
-            let mut ds = Vec::new();
-            while v > 0 {
-                ds.push((v % 10) as u8);
-                v /= 10;
-            }
-            ds.reverse();
-            ds
-        };
-        let gap = thick;
-        let mut cursor = x;
-        for d in digits {
-            draw_digit(
-                pixels, stride, buf_w, buf_h, cursor, y, d, cell_w, cell_h, thick, color,
-            );
-            cursor += cell_w + gap;
-        }
-        cursor - x
-    }
-
-    // 5x5 bitmap font, only the glyphs this overlay actually uses. Bit4 = leftmost column.
-    fn glyph_5x5(ch: char) -> Option<[u8; 5]> {
-        match ch {
-            'D' => Some([0b11100, 0b10010, 0b10001, 0b10010, 0b11100]),
-            'C' => Some([0b01111, 0b10000, 0b10000, 0b10000, 0b01111]),
-            'F' => Some([0b11111, 0b10000, 0b11110, 0b10000, 0b10000]),
-            _ => None,
-        }
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn draw_letter(
-        pixels: &mut [u8],
-        stride: usize,
-        buf_w: i32,
-        buf_h: i32,
-        x: i32,
-        y: i32,
-        ch: char,
-        scale: i32,
-        color: Rgba,
-    ) {
-        let Some(rows) = glyph_5x5(ch) else {
-            return;
-        };
-        for (row_idx, row_bits) in rows.iter().enumerate() {
-            for col_idx in 0..5 {
-                if row_bits & (1 << (4 - col_idx)) != 0 {
-                    fill_rect(
-                        pixels,
-                        stride,
-                        buf_w,
-                        buf_h,
-                        x + col_idx * scale,
-                        y + row_idx as i32 * scale,
-                        scale,
-                        scale,
-                        color,
-                    );
-                }
-            }
-        }
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn draw_row(
-        pixels: &mut [u8],
-        stride: usize,
-        buf_w: i32,
-        buf_h: i32,
-        x: i32,
-        y: i32,
-        label: char,
-        primary: u32,
-        secondary: Option<u32>,
-    ) {
-        draw_letter(pixels, stride, buf_w, buf_h, x, y + 2, label, 3, PRIMARY);
-        let number_x = x + 22;
-        let consumed = draw_number(
-            pixels, stride, buf_w, buf_h, number_x, y, primary, 12, 20, 3, PRIMARY,
-        );
-        if let Some(secondary) = secondary {
-            draw_number(
-                pixels,
-                stride,
-                buf_w,
-                buf_h,
-                number_x + consumed + 10,
-                y + 7,
-                secondary,
-                8,
-                13,
-                2,
-                SECONDARY,
-            );
-        }
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn draw_sparkline(
-        pixels: &mut [u8],
-        stride: usize,
-        buf_w: i32,
-        buf_h: i32,
-        x: i32,
-        y: i32,
-        w: usize,
-        h: i32,
-        values: &[f64],
-        warn_threshold_ms: f64,
-    ) {
-        const SAMPLES: usize = 40;
-        const MAX_SCALE_MS: f64 = 40.0;
-
-        let slot_w = ((w / SAMPLES).max(1)) as i32;
-        for (i, &delta_ms) in values.iter().enumerate() {
-            let bar_h = ((delta_ms / MAX_SCALE_MS).clamp(0.02, 1.0) * h as f64) as i32;
-            let color = if delta_ms > warn_threshold_ms {
-                BAR_WARN
-            } else {
-                BAR_OK
-            };
-            let bar_x = x + i as i32 * slot_w;
-            fill_rect(
-                pixels,
-                stride,
-                buf_w,
-                buf_h,
-                bar_x,
-                y + h - bar_h,
-                (slot_w - 1).max(1),
-                bar_h,
-                color,
-            );
-        }
-    }
-}

@@ -4,7 +4,6 @@
 #define WP_EXPORT
 #endif
 
-#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -17,7 +16,7 @@
 #include "x11.h"
 
 static const char wallpiper_window_tag[] = "wallpiper-";
-static _Atomic uint64_t map_suppress_count = 0;
+static uint64_t map_suppress_count = 0;
 
 WP_EXPORT int XShmPutImage(void* display, unsigned long drawable, void* gc, XImageCompat* image, int src_x, int src_y, int dst_x, int dst_y, unsigned int src_width,
                            unsigned int src_height, int send_event)
@@ -60,7 +59,7 @@ WP_EXPORT int XMapWindow(void* display, unsigned long window)
         return real(display, window);
     }
 
-    uint64_t n = atomic_fetch_add_explicit(&map_suppress_count, 1, memory_order_relaxed) + 1;
+    uint64_t n = __atomic_fetch_add(&map_suppress_count, 1, __ATOMIC_RELAXED) + 1;
     wp_log("XMapWindow suppressed, window=0x%lx, call #%llu", window, (unsigned long long)n);
 
     if (is_ours && has_size) {

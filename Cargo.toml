@@ -6,8 +6,12 @@ members = [
     "crates/vulkan-layer-capture",
     "crates/vulkan-layer",
     "crates/vulkan-layer-macros",
-    "wallpiper-portal-hyprland"
+    "wallpiper-portal-hyprland",
+    "wallpiper-portal-i3"
 ]
 
 [profile.release]
 panic = "abort"
+strip = true
+lto = true
+codegen-units = 1

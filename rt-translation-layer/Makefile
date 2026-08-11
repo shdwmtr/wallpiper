@@ -1,5 +1,5 @@
 CC ?= cc
-CFLAGS ?= -O2 -Wall -Wextra -fPIC -fvisibility=hidden -D_GNU_SOURCE
+CFLAGS ?= -std=gnu99 -O2 -Wall -Wextra -fPIC -fvisibility=hidden -D_GNU_SOURCE
 DEPFLAGS := -MMD -MP
 TARGET_DIR := ../target/release
 OBJ_DIR := ../target/objects

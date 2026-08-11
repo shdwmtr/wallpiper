@@ -1,5 +1,4 @@
 #include <pthread.h>
-#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,7 +25,7 @@ typedef struct
     int width, height;
 } MonitorGeometry;
 
-static _Atomic int mouse_track_started = 0;
+static int mouse_track_started = 0;
 
 static bool portal_socket_path(char* out, size_t out_len)
 {
@@ -222,7 +221,7 @@ static void* mouse_track_thread(void* raw_args)
 void mouse_track_start(void* display, unsigned long window, int width, int height)
 {
     int expected = 0;
-    if (!atomic_compare_exchange_strong(&mouse_track_started, &expected, 1)) {
+    if (!__atomic_compare_exchange_n(&mouse_track_started, &expected, 1, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
         return;
     }
 
