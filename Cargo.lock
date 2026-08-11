@@ -938,6 +938,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "wallpiper-portal-sway"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "serde_json",
+ "smithay-client-toolkit",
+ "wallpiper-protocol",
+ "wayland-client",
+ "wayland-protocols",
+]
+
+[[package]]
 name = "wallpiper-protocol"
 version = "0.1.0"
 dependencies = [

@@ -34,6 +34,7 @@ Wallpiper supports the following DE/WM(s) through the following portals. Jump to
 * [wallpiper-portal-kde](#kde-plasma-portal)
 * [wallpiper-portal-hyprland](#hyprland-portal)
 * [wallpiper-portal-i3](#i3wm-portal)
+* [wallpiper-portal-sway](#sway-portal)
 
 ## GNOME (Mutter) portal
 
@@ -105,7 +106,25 @@ $ just install-kde
 ## Hyprland portal
 
 A standalone Rust binary (`wallpiper-portal-hyprland`) that talks to the compositor directly over
-Wayland. No shell extension, and no install step. 
+Wayland, using `wlr-layer-shell`. No shell extension, and no install step.
+
+### Dependencies
+
+None beyond the [core dependencies](#dependencies).
+
+### Build
+
+```sh
+$ just build-cargo
+```
+
+## Sway portal
+
+A standalone Rust binary (`wallpiper-portal-sway`) that talks to the compositor directly over
+Wayland, using `wlr-layer-shell`. No shell extension, and no install step.
+
+sway's IPC has no query for the compositor's global cursor position, so this portal can't support
+cursor-reactive wallpapers.
 
 ### Dependencies
 
@@ -138,7 +157,7 @@ $ just build-cargo
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `WALLPIPER_PORTAL` | *(required)* | Which portal to use: `hyprland`, `gnome`, `kde`, `i3` |
+| `WALLPIPER_PORTAL` | *(required)* | Which portal to use: `hyprland`, `sway`, `i3`, `gnome`, `kde` |
 | `WALLPIPER_STATE_FILE` | *(required)* | Full path of the file to persist the selected wallpaper to (created if missing) |
 | `WALLPIPER_STEAM_ROOT` | auto-detected (`~/.local/share/Steam`, `~/.steam/steam`, `~/.steam/root`, or the Flatpak path) | Your Steam library root |
 | `WALLPIPER_PROTON_BIN` | auto-detected, first `compatibilitytools.d/*/proton` with "GE" in the name, else any | Path to the `proton` binary to run Wallpaper Engine with |

@@ -7,7 +7,8 @@ members = [
     "crates/vulkan-layer",
     "crates/vulkan-layer-macros",
     "wallpiper-portal-hyprland",
-    "wallpiper-portal-i3"
+    "wallpiper-portal-i3",
+    "wallpiper-portal-sway"
 ]
 
 [profile.release]
