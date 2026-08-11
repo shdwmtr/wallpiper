@@ -24,7 +24,6 @@ $ pacman -S just rustup base-devel
 
 **NOTE**: If you use another Linux distribution, please contribute docs to this list and all relevant sub items below.
 
-
 Each portal has its own additional dependencies, build step, and install step. See its section
 below.
 
@@ -109,7 +108,45 @@ None beyond the [core dependencies](#dependencies).
 $ just build-cargo
 ```
 
+## Launching Wallpiper
 
+`wallpiperd` has no persistent configuration, all variability is mutable through environment variables. 
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `WALLPIPER_PORTAL` | *(required)* | Which portal to use: `hyprland`, `gnome`, or `kde` |
+| `WALLPIPER_STATE_FILE` | *(required)* | Full path of the file to persist the selected wallpaper to (created if missing) |
+| `WALLPIPER_STEAM_ROOT` | auto-detected (`~/.local/share/Steam`, `~/.steam/steam`, `~/.steam/root`, or the Flatpak path) | Your Steam library root |
+| `WALLPIPER_PROTON_BIN` | auto-detected, first `compatibilitytools.d/*/proton` with "GE" in the name, else any | Path to the `proton` binary to run Wallpaper Engine with |
+| `WALLPIPER_WE_EXE` | `$STEAM_ROOT/steamapps/common/wallpaper_engine/wallpaper64.exe` | Path to Wallpaper Engine's executable |
+
+```sh
+# Check what it resolved before launching for real
+$ ./target/release/wallpiperd check-config
+
+# Example on hyprland
+WALLPIPER_PORTAL=hyprland WALLPIPER_STATE_FILE=$HOME/wallpiper.conf ./target/release/wallpiperd
+```
+
+### Command API
+
+While `wallpiperd` is running, type commands into its stdin:
+
+```
+set /path/to/wallpaper.pkg
+pause
+resume
+mute
+unmute
+debug
+nodebug
+```
+
+`set` can also be run as a one-off, without attaching to the daemon's stdin:
+
+```sh
+./target/release/wallpiperd set /path/to/wallpaper.pkg
+```
 
 ## License
 
