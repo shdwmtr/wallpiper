@@ -11,6 +11,16 @@ use crate::config::{self, FALLBACK_MONITOR};
 static DISPLAY_PID: Mutex<Option<i32>> = Mutex::new(None);
 static MONITOR_STATE: Mutex<Option<MonitorGeometry>> = Mutex::new(None);
 
+fn die_with_parent() -> std::io::Result<()> {
+    if unsafe { libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) } != 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    if unsafe { libc::getppid() } == 1 {
+        unsafe { libc::raise(libc::SIGKILL) };
+    }
+    Ok(())
+}
+
 pub fn take_display_pid() -> Option<i32> {
     DISPLAY_PID.lock().unwrap().take()
 }
@@ -64,12 +74,15 @@ pub fn spawn_portal(strategy: &PortalSpawnStrategy) {
     let Ok(logfile_err) = logfile.try_clone() else {
         return;
     };
-    match Command::new(bin)
-        .stdout(Stdio::from(logfile))
+    let mut cmd = Command::new(bin);
+    cmd.stdout(Stdio::from(logfile))
         .stderr(Stdio::from(logfile_err))
-        .process_group(0)
-        .spawn()
-    {
+        .process_group(0);
+    unsafe {
+        cmd.pre_exec(die_with_parent);
+    }
+
+    match cmd.spawn() {
         Ok(child) => {
             println!("spawned portal ({bin}) pid={}", child.id());
             *DISPLAY_PID.lock().unwrap() = Some(child.id() as i32);
