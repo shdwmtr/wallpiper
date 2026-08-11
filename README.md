@@ -1,4 +1,4 @@
-# wallpiper
+# 🗜️ wallpiper 
 
 A runtime-interpose translation layer for [Wallpaper Engine](https://www.wallpaperengine.io/en) on top of [Proton GE](https://github.com/gloriouseggroll/proton-ge-custom) to allow native Wallpaper Engine support on Linux.
 
