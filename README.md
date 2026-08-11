@@ -118,22 +118,26 @@ $ just build-cargo
 | `WALLPIPER_STATE_FILE` | *(required)* | Full path of the file to persist the selected wallpaper to (created if missing) |
 | `WALLPIPER_STEAM_ROOT` | auto-detected (`~/.local/share/Steam`, `~/.steam/steam`, `~/.steam/root`, or the Flatpak path) | Your Steam library root |
 | `WALLPIPER_PROTON_BIN` | auto-detected, first `compatibilitytools.d/*/proton` with "GE" in the name, else any | Path to the `proton` binary to run Wallpaper Engine with |
-| `WALLPIPER_WE_EXE` | `$STEAM_ROOT/steamapps/common/wallpaper_engine/wallpaper64.exe` | Path to Wallpaper Engine's executable |
+| `WALLPIPER_WE_EXE` | `$STEAM_ROOT/steamapps/common/`<br>`wallpaper_engine/wallpaper64.exe` | Path to Wallpaper Engine's executable |
+| `WALLPIPER_RUNTIME_DIR` | `/tmp/wallpiper` | Directory used for runtime files (e.g. the Vulkan capture layer's search path) |
 
 ```sh
 # Check what it resolved before launching for real
 $ ./target/release/wallpiperd check-config
 
 # Example on hyprland
-WALLPIPER_PORTAL=hyprland WALLPIPER_STATE_FILE=$HOME/wallpiper.conf ./target/release/wallpiperd
+$ WALLPIPER_PORTAL=hyprland WALLPIPER_STATE_FILE=$HOME/wallpiper.conf ./target/release/wallpiperd
 ```
 
-### Command API
+## Command API
+
+### Runtime API
 
 While `wallpiperd` is running, type commands into its stdin:
 
 ```
 set /path/to/wallpaper.pkg
+set --id <workshop_id>
 pause
 resume
 mute
@@ -142,11 +146,45 @@ debug
 nodebug
 ```
 
-`set` can also be run as a one-off, without attaching to the daemon's stdin:
+#### External Management
+
+If you aren't programmatically managing wallpiper, you can export its stdin to FIFO to allow easy desktop usage
 
 ```sh
-./target/release/wallpiperd set /path/to/wallpaper.pkg
+#!/usr/bin/env bash
+mkfifo /tmp/wp.fifo 2>/dev/null || true
+[ -p /tmp/wp.fifo ] || { echo "refusing to reuse non-fifo /tmp/wp.fifo" >&2; exit 1; }
+
+tail -f /dev/null > /tmp/wp.fifo &
+fifo_keeper=$!
+trap 'kill $fifo_keeper 2>/dev/null' EXIT
+
+WALLPIPER_PORTAL=hyprland WALLPIPER_STATE_FILE=$HOME/wallpiper.conf ./target/release/wallpiperd < /tmp/wp.fifo &
 ```
+
+From an external shell, user, display, etc. 
+
+```sh
+# pause and resume wallpiper
+$ echo "pause" > /tmp/wp.fifo
+$ echo "resume" > /tmp/wp.fifo 
+```
+
+### CLI API
+
+```sh
+# API Declarations
+list-wallpapers [-j|output as JSON]
+list-properties <workshop_id> [-j|output as JSON]
+
+# Examples
+./target/release/wallpiperd list-wallpapers -j
+./target/release/wallpiperd list-properties 2207463614 -j
+```
+
+## Known Limitations
+
+* wallpiper assumes a mutable /tmp 
 
 ## License
 
