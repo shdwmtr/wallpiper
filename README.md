@@ -36,6 +36,8 @@ Wallpiper supports the following DE/WM(s) through the following portals. Jump to
 * [wallpiper-portal-i3](#i3wm-portal)
 * [wallpiper-portal-sway](#sway-portal)
 
+Pull requests are welcome for additional portals. You can also submit an issue report to suggest other portals.
+
 ## GNOME (Mutter) portal
 
 Implemented as an in-process GObject-Introspection library driven by a GNOME Shell extension.
@@ -222,8 +224,8 @@ list-wallpapers [-j|output as JSON]
 list-properties <workshop_id> [-j|output as JSON]
 
 # Examples
-./target/release/wallpiperd list-wallpapers -j
-./target/release/wallpiperd list-properties 2207463614 -j
+$ ./target/release/wallpiperd list-wallpapers -j
+$ ./target/release/wallpiperd list-properties 2207463614 -j
 ```
 
 ## License
