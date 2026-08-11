@@ -91,7 +91,7 @@ gboolean wallpiper_portal_start(GObject* backend_obj, GObject* parent_obj, GErro
 
     portal_state = state;
 
-    g_message("wallpiper-gnome: portal started — capture socket %s, ctl socket %s", WALLPIPER_CAPTURE_SOCKET_PATH, WALLPIPER_CTL_SOCKET_PATH);
+    g_message("wallpiper-gnome: portal started: capture socket %s, ctl socket %s", WALLPIPER_CAPTURE_SOCKET_PATH, WALLPIPER_CTL_SOCKET_PATH);
 
     return TRUE;
 }
