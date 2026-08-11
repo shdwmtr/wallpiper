@@ -1,17 +1,29 @@
 use std::fs::File;
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::time::Duration;
 
 use wallpiper_protocol::{CtlRequest, CtlResponse, MonitorGeometry};
 
-use crate::config::{self, FALLBACK_MONITOR, REPO_ROOT};
+use crate::config::{self, FALLBACK_MONITOR};
 
 static DISPLAY_PID: Mutex<Option<i32>> = Mutex::new(None);
+static MONITOR_STATE: Mutex<Option<MonitorGeometry>> = Mutex::new(None);
 
 pub fn take_display_pid() -> Option<i32> {
     DISPLAY_PID.lock().unwrap().take()
+}
+
+pub fn current_monitor() -> Option<MonitorGeometry> {
+    *MONITOR_STATE.lock().unwrap()
+}
+
+pub fn query_monitor_once(name: &str) -> Option<MonitorGeometry> {
+    match wallpiper_protocol::send_ctl_request(name, CtlRequest::Geometry) {
+        Some(CtlResponse::Geometry(geometry)) => Some(geometry),
+        _ => None,
+    }
 }
 
 pub enum PortalSpawnStrategy {
@@ -26,7 +38,10 @@ pub fn portal_spawn_strategy(name: &str) -> PortalSpawnStrategy {
         },
         _ => PortalSpawnStrategy::Spawn {
             name: name.to_string(),
-            binary: format!("{REPO_ROOT}/target/release/wallpiper-portal-{name}"),
+            binary: format!(
+                "{}/wallpiper-portal-{name}",
+                config::install_dir().display()
+            ),
         },
     }
 }
@@ -63,11 +78,7 @@ pub fn spawn_portal(strategy: &PortalSpawnStrategy) {
     }
 }
 
-pub fn spawn_geometry_watcher(
-    name: String,
-    patient: bool,
-    state: Arc<Mutex<Option<MonitorGeometry>>>,
-) {
+pub fn spawn_geometry_watcher(name: String, patient: bool) {
     std::thread::spawn(move || {
         let interval = if patient {
             Duration::from_secs(2)
@@ -80,7 +91,7 @@ pub fn spawn_geometry_watcher(
             attempt += 1;
             match wallpiper_protocol::send_ctl_request(&name, CtlRequest::Geometry) {
                 Some(CtlResponse::Geometry(geometry)) => {
-                    let mut guard = state.lock().unwrap();
+                    let mut guard = MONITOR_STATE.lock().unwrap();
                     if *guard != Some(geometry) {
                         println!("portal {name} geometry: {geometry:?}");
                     }
@@ -94,9 +105,9 @@ pub fn spawn_geometry_watcher(
                         );
                         was_reachable = false;
                     }
-                    if !patient && attempt >= 10 && state.lock().unwrap().is_none() {
+                    if !patient && attempt >= 10 && MONITOR_STATE.lock().unwrap().is_none() {
                         println!("portal {name} never answered a geometry request, falling back to default");
-                        *state.lock().unwrap() = Some(FALLBACK_MONITOR);
+                        *MONITOR_STATE.lock().unwrap() = Some(FALLBACK_MONITOR);
                     }
                 }
             }
@@ -105,9 +116,9 @@ pub fn spawn_geometry_watcher(
     });
 }
 
-pub fn wait_for_geometry(state: &Arc<Mutex<Option<MonitorGeometry>>>) -> MonitorGeometry {
+pub fn wait_for_geometry() -> MonitorGeometry {
     loop {
-        if let Some(geometry) = *state.lock().unwrap() {
+        if let Some(geometry) = current_monitor() {
             return geometry;
         }
         std::thread::sleep(Duration::from_millis(200));
@@ -122,10 +133,8 @@ pub fn detach_display() -> bool {
 }
 
 pub fn set_debug_overlay(enabled: bool) {
-    let response = wallpiper_protocol::send_ctl_request(
-        &config::portal_name(),
-        CtlRequest::SetDebug(enabled),
-    );
+    let response =
+        wallpiper_protocol::send_ctl_request(&config::portal_name(), CtlRequest::SetDebug(enabled));
     let ok = matches!(response, Some(CtlResponse::Ok));
     println!(
         "debug overlay {} -> {}",

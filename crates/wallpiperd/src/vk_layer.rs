@@ -1,10 +1,14 @@
-use crate::config::{REPO_ROOT, STATE_DIR};
+use crate::config;
 
 pub const VK_CAPTURE_LAYER_NAME: &str = "VK_LAYER_wallpiper_capture";
 
 pub fn write_vk_layer_manifest() {
-    let _ = std::fs::create_dir_all(STATE_DIR);
-    let library_path = format!("{REPO_ROOT}/target/release/libVkLayer_wallpiper_capture.so");
+    let runtime_dir = config::runtime_dir();
+    let _ = std::fs::create_dir_all(&runtime_dir);
+    let library_path = format!(
+        "{}/libVkLayer_wallpiper_capture.so",
+        config::install_dir().display()
+    );
     let manifest = format!(
         r#"{{
     "file_format_version" : "1.0.0",
@@ -19,7 +23,7 @@ pub fn write_vk_layer_manifest() {
 }}
 "#
     );
-    let path = format!("{STATE_DIR}/{VK_CAPTURE_LAYER_NAME}.json");
+    let path = format!("{runtime_dir}/{VK_CAPTURE_LAYER_NAME}.json");
     if let Err(e) = std::fs::write(&path, manifest) {
         println!("failed to write vk layer manifest at {path}: {e}");
     }

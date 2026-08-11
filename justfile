@@ -22,6 +22,13 @@ build-kde:
     cmake -S wallpiper-portal-kde/native -B {{kde_build_dir}} -DCMAKE_BUILD_TYPE=Release
     cmake --build {{kde_build_dir}} --parallel
 
+install-gnome: build-gnome
+    sudo meson install -C {{gnome_build_dir}}
+    sudo ldconfig
+    mkdir -p "$HOME/.local/share/gnome-shell/extensions/wallpiper-gnome@wallpiper.dev"
+    cp -r wallpiper-portal-gnome/extension/. "$HOME/.local/share/gnome-shell/extensions/wallpiper-gnome@wallpiper.dev/"
+    gnome-extensions enable wallpiper-gnome@wallpiper.dev
+
 install-kde:
     ./wallpiper-portal-kde/install.sh
 

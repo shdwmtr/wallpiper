@@ -1,5 +1,5 @@
 project('wallpiper-gnome', 'c',
-  default_options: ['warning_level=2', 'c_std=gnu11'],
+  default_options: ['warning_level=2', 'c_std=gnu11', 'prefix=/usr'],
 )
 
 gnome = import('gnome')
@@ -30,7 +30,7 @@ lib = shared_library('wallpiper-1.0',
   lib_sources,
   include_directories: inc,
   dependencies: [mutter_dep, cogl_dep, clutter_dep, gobject_dep, gio_unix_dep, gbm_dep, egl_dep, drm_dep],
-  install: false,
+  install: true,
 )
 
 # Only the files containing the public, GI-exposed API need to be scanned:
@@ -44,7 +44,7 @@ gnome.generate_gir(lib,
   identifier_prefix: 'Wallpiper',
   symbol_prefix: 'wallpiper',
   includes: ['GObject-2.0'],
-  install: false,
+  install: true,
 )
 
 executable('wallpiper-test-producer',

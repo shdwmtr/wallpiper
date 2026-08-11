@@ -4,7 +4,7 @@ use std::process::{Command, Stdio};
 
 use wallpiper_protocol::MonitorGeometry;
 
-use crate::config::{self, COMPATDATA, PROTON_BIN, STEAM_ROOT, WE_EXE};
+use crate::config;
 use crate::process::{find_renderer_pid, find_renderer_pids_for_tag};
 use crate::vk_layer::VK_CAPTURE_LAYER_NAME;
 
@@ -44,9 +44,9 @@ pub fn spawn_renderer(file: &str, location: &str, monitor: MonitorGeometry) {
         return;
     };
 
-    let mut cmd = Command::new(PROTON_BIN);
+    let mut cmd = Command::new(config::proton_bin());
     cmd.arg("run")
-        .arg(WE_EXE)
+        .arg(config::we_exe())
         .arg("-control")
         .arg("openWallpaper")
         .arg("-file")
@@ -58,8 +58,8 @@ pub fn spawn_renderer(file: &str, location: &str, monitor: MonitorGeometry) {
         .arg(monitor.width.to_string())
         .arg("-height")
         .arg(monitor.height.to_string())
-        .env("STEAM_COMPAT_CLIENT_INSTALL_PATH", STEAM_ROOT)
-        .env("STEAM_COMPAT_DATA_PATH", COMPATDATA)
+        .env("STEAM_COMPAT_CLIENT_INSTALL_PATH", config::steam_root())
+        .env("STEAM_COMPAT_DATA_PATH", config::compatdata())
         .env("LD_PRELOAD", config::preload_paths())
         .env("VK_ADD_LAYER_PATH", config::vk_layer_path())
         .env("VK_INSTANCE_LAYERS", VK_CAPTURE_LAYER_NAME)
