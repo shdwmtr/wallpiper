@@ -57,7 +57,7 @@ pub fn spawn_renderer(
         .arg("-control")
         .arg("openWallpaper")
         .arg("-file")
-        .arg(file)
+        .arg(config::to_windows_path(file))
         .arg("-playInWindow")
         .arg(&tag)
         .arg("-borderless")

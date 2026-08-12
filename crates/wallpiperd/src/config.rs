@@ -97,12 +97,8 @@ pub fn we_exe() -> String {
     we_exe_result().unwrap_or_else(|e| panic!("{e}"))
 }
 
-fn proton_bin_result() -> Result<String, String> {
-    if let Some(bin) = env_path("WALLPIPER_PROTON_BIN") {
-        return Ok(bin);
-    }
-    let tools_dir = format!("{}/compatibilitytools.d", steam_root_result()?);
-    let mut candidates: Vec<String> = std::fs::read_dir(&tools_dir)
+fn proton_candidates(dir: &str) -> impl Iterator<Item = String> {
+    std::fs::read_dir(dir)
         .into_iter()
         .flatten()
         .flatten()
@@ -112,16 +108,24 @@ fn proton_bin_result() -> Result<String, String> {
                 .is_file()
                 .then(|| proton.to_string_lossy().into_owned())
         })
-        .collect();
-    candidates.sort_by(|a, b| {
-        let a_ge = a.to_lowercase().contains("ge");
-        let b_ge = b.to_lowercase().contains("ge");
-        b_ge.cmp(&a_ge).then_with(|| b.cmp(a))
-    });
+}
+
+fn proton_bin_result() -> Result<String, String> {
+    if let Some(bin) = env_path("WALLPIPER_PROTON_BIN") {
+        return Ok(bin);
+    }
+    let steam_root = steam_root_result()?;
+    let tools_dir = format!("{steam_root}/compatibilitytools.d");
+    let common_dir = format!("{steam_root}/steamapps/common");
+
+    let mut candidates: Vec<String> = proton_candidates(&tools_dir).collect();
+    candidates.extend(proton_candidates(&common_dir));
+    candidates.sort_by(|a, b| b.cmp(a));
+
     candidates.into_iter().next().ok_or_else(|| {
         format!(
-            "no Proton build found under {tools_dir}. Install Proton GE, or set \
-             WALLPIPER_PROTON_BIN to a proton binary's path"
+            "no Proton build found under {tools_dir} or {common_dir}. Install Proton \
+             through Steam, or set WALLPIPER_PROTON_BIN to a proton binary's path"
         )
     })
 }
@@ -166,20 +170,8 @@ pub fn vk_layer_path() -> String {
     runtime_dir()
 }
 
-pub fn wine_prefix() -> String {
-    format!("{}/pfx", compatdata())
-}
-
-pub fn wineserver_bin() -> String {
-    let dir = std::path::Path::new(&proton_bin())
-        .parent()
-        .expect("proton binary path has no parent directory")
-        .to_path_buf();
-    format!("{}/files/bin/wineserver", dir.display())
-}
-
-pub fn wineserver_pidfile() -> String {
-    format!("{}/wineserver.pid", runtime_dir())
+pub fn to_windows_path(unix_path: &str) -> String {
+    format!("Z:{}", unix_path.replace('/', "\\"))
 }
 
 fn report(label: &str, result: Result<String, String>) {

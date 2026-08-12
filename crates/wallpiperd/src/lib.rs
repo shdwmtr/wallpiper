@@ -10,7 +10,6 @@ mod renderer;
 mod selection;
 mod signals;
 mod vk_layer;
-mod wine;
 
 use std::time::Duration;
 
@@ -21,9 +20,6 @@ pub fn run() {
     signals::install_shutdown_handler(cleanup::cleanup);
 
     vk_layer::write_vk_layer_manifest();
-
-    wine::ensure_persistent_wineserver();
-    std::thread::sleep(Duration::from_millis(300));
 
     let portal_name = config::portal_name();
     println!("using portal: {portal_name}");

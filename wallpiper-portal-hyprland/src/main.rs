@@ -244,6 +244,9 @@ fn main() {
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {}
         }
+        while let Ok(event) = event_rx.try_recv() {
+            state.handle_event(&qh, event);
+        }
 
         if let Ok((request, reply_tx)) = ctl_rx.try_recv() {
             let response = match request {

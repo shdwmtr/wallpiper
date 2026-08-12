@@ -18,19 +18,6 @@
 static const char wallpiper_window_tag[] = "wallpiper-";
 static uint64_t map_suppress_count = 0;
 
-WP_EXPORT int XShmPutImage(void* display, unsigned long drawable, void* gc, XImageCompat* image, int src_x, int src_y, int dst_x, int dst_y, unsigned int src_width,
-                           unsigned int src_height, int send_event)
-{
-    capture_on_put_image(drawable, image, src_x, src_y, dst_x, dst_y, src_width, src_height);
-
-    pfn_xshmputimage real = (pfn_xshmputimage)interpose_resolve("XShmPutImage");
-    if (!real) {
-        wp_log("XShmPutImage: failed to resolve real symbol");
-        return 0;
-    }
-    return real(display, drawable, gc, image, src_x, src_y, dst_x, dst_y, src_width, src_height, send_event);
-}
-
 WP_EXPORT int XMapWindow(void* display, unsigned long window)
 {
     pfn_xmapwindow real = (pfn_xmapwindow)interpose_resolve("XMapWindow");

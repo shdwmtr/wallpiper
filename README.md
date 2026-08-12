@@ -173,7 +173,7 @@ $ just build-i3
 | `WALLPIPER_PORTAL` | *(required)* | Which portal to use: `hyprland`, `sway`, `i3`, `gnome`, `kde` |
 | `WALLPIPER_STATE_FILE` | *(required)* | Full path of the file to persist the selected wallpaper to (created if missing) |
 | `WALLPIPER_STEAM_ROOT` | auto-detected (`~/.local/share/Steam`, `~/.steam/steam`, `~/.steam/root`, or the Flatpak path) | Your Steam library root |
-| `WALLPIPER_PROTON_BIN` | auto-detected, first `compatibilitytools.d/*/proton` with "GE" in the name, else any | Path to the `proton` binary to run Wallpaper Engine with |
+| `WALLPIPER_PROTON_BIN` | auto-detected under `compatibilitytools.d/*/proton` or `steamapps/common/Proton */proton` | Path to the `proton` binary to run Wallpaper Engine with |
 | `WALLPIPER_WE_EXE` | `$STEAM_ROOT/steamapps/common/`<br>`wallpaper_engine/wallpaper64.exe` | Path to Wallpaper Engine's executable |
 | `WALLPIPER_RUNTIME_DIR` | `/tmp/wallpiper` | Directory used for runtime files (e.g. the Vulkan capture layer's search path) |
 
