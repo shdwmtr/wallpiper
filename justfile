@@ -14,7 +14,7 @@ build-cargo:
     cargo build --release --workspace
 
 build-interpose:
-    make -C rt-translation-layer
+    just --justfile translation-layer/justfile
 
 build-hyprland:
     cargo build --release --manifest-path wallpiper-portal-hyprland/Cargo.toml --target-dir target

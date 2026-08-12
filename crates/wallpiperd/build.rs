@@ -8,17 +8,17 @@ fn main() {
         .parent()
         .and_then(|p| p.parent())
         .expect("expected crates/wallpiperd to be two levels below the workspace root");
-    let translation_layer = workspace_root.join("rt-translation-layer");
+    let translation_layer = workspace_root.join("translation-layer");
 
     println!("cargo:rerun-if-changed={}", translation_layer.display());
 
-    let status = Command::new("make")
-        .arg("-C")
-        .arg(&translation_layer)
+    let status = Command::new("just")
+        .arg("--justfile")
+        .arg(translation_layer.join("justfile"))
         .status()
-        .expect("failed to invoke `make` for rt-translation-layer");
+        .expect("failed to invoke `just` for translation-layer");
 
     if !status.success() {
-        panic!("rt-translation-layer build failed with {status}");
+        panic!("translation-layer build failed with {status}");
     }
 }

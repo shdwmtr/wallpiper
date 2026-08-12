@@ -178,6 +178,10 @@ pub fn wineserver_bin() -> String {
     format!("{}/files/bin/wineserver", dir.display())
 }
 
+pub fn wineserver_pidfile() -> String {
+    format!("{}/wineserver.pid", runtime_dir())
+}
+
 fn report(label: &str, result: Result<String, String>) {
     match result {
         Ok(value) => println!("  {label}: {value}"),
