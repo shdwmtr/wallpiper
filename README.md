@@ -1,19 +1,19 @@
 # 🗜️ wallpiper 
 
-A runtime-interpose translation layer for [Wallpaper Engine](https://www.wallpaperengine.io/en) on top of [Proton GE](https://github.com/gloriouseggroll/proton-ge-custom) to allow native Wallpaper Engine support on Linux.
+A runtime-interpose translation layer for [Wallpaper Engine](https://www.wallpaperengine.io/en) on top of [Proton](https://github.com/valvesoftware/proton) to allow native Wallpaper Engine support on Linux.
 
 It's exactly what you'd expect, opposed to existing libraries like [linux-wallpaperengine](https://github.com/Almamu/linux-wallpaperengine) (arguably misled by AI), wallpiper runs Wallpaper Engine natively without re-inventing the wheel. 
 
-Given Proton GE is capable of it, wallpiper natively supports all existing Wallpaper Engine user wallpapers. 
+Given Proton's translation layer holds, wallpiper natively supports all existing Wallpaper Engine wallpapers. 
 
 ## System Requirements
 
-Compile time core dependencies, needed regardless of which compositor portal you're building. There are no runtime dependencies. 
+Compile time core dependencies, needed regardless of which compositor portal you're building. 
 
 - Just
+- Proton >= 11.0
 - Rust >= 1.87
 - GNU GCC >= 4.7 (C99, `__atomic` builtins)
-- Make
 
 On Arch Linux:
 
