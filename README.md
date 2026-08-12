@@ -28,7 +28,18 @@ below.
 
 ## Installation
 
-Wallpiper supports the following DE/WM(s) through the following portals. Jump to whatever section is relevant to you. 
+Start by building the core of `wallpiper`
+
+```sh
+$ just build-core
+
+# You can also install wallpiper and its related binaries to %HOME/.local/lib/wallpiper/*
+# NOTE: This is not required, wallpiper can run from any directory. wallpiper assumes all its
+# required binaries are in the same directory on disk (not cwd)
+$ just install-wallpiperd
+```
+
+Now, you need to compile a relevant portal. Wallpiper supports the following DE/WM(s) through the following portals. Jump to whatever section is relevant to you. 
 
 * [wallpiper-portal-gnome](#gnome-mutter-portal)
 * [wallpiper-portal-kde](#kde-plasma-portal)
@@ -117,7 +128,7 @@ None beyond the [core dependencies](#dependencies).
 ### Build
 
 ```sh
-$ just build-cargo
+$ just build-hyprland
 ```
 
 ## Sway portal
@@ -135,7 +146,7 @@ None beyond the [core dependencies](#dependencies).
 ### Build
 
 ```sh
-$ just build-cargo
+$ just build-sway
 ```
 
 ## i3wm portal
@@ -150,10 +161,10 @@ None beyond the [core dependencies](#dependencies).
 ### Build
 
 ```sh
-$ just build-cargo
+$ just build-i3
 ```
 
-## Launching Wallpiper
+## Usage
 
 `wallpiperd` has no persistent configuration, all variability is mutable through environment variables. 
 
@@ -176,56 +187,50 @@ $ WALLPIPER_PORTAL=hyprland WALLPIPER_STATE_FILE=$HOME/wallpiper.conf ./target/r
 
 ## Command API
 
-### Runtime API
-
-While `wallpiperd` is running, type commands into its stdin:
-
-```
-set /path/to/wallpaper.pkg
-set --id <workshop_id>
-pause
-resume
-mute
-unmute
-volume <0-100>
-debug
-nodebug
-```
-
-#### External Management
-
-If you aren't programmatically managing wallpiper, you can export its stdin to FIFO to allow easy desktop usage
+`wallpiperctl` is a control process for the `wallpiperd` daemon. The following commands require `wallpiperd` to be actively running with the same `WALLPIPER_RUNTIME_DIR`.
 
 ```sh
-#!/usr/bin/env bash
-mkfifo /tmp/wp.fifo 2>/dev/null || true
-[ -p /tmp/wp.fifo ] || { echo "refusing to reuse non-fifo /tmp/wp.fifo" >&2; exit 1; }
+$ wallpiperctl set /path/to/wallpaper.pkg
+$ wallpiperctl set --id <workshop_id>
+$ wallpiperctl pause
+$ wallpiperctl resume
+$ wallpiperctl mute
+$ wallpiperctl unmute
+$ wallpiperctl volume <0-100>
+$ wallpiperctl debug
+$ wallpiperctl nodebug
 
-tail -f /dev/null > /tmp/wp.fifo &
-fifo_keeper=$!
-trap 'kill $fifo_keeper 2>/dev/null' EXIT
-
-WALLPIPER_PORTAL=hyprland WALLPIPER_STATE_FILE=$HOME/wallpiper.conf ./target/release/wallpiperd < /tmp/wp.fifo &
+# stateless, do not require wallpiperd to be running.
+$ wallpiperctl list-wallpapers [-j]
+$ wallpiperctl list-properties <workshop_id> [-j]
 ```
 
-From an external shell, user, display, etc. 
+## Systemd
 
-```sh
-# pause and resume wallpiper
-$ echo "pause" > /tmp/wp.fifo
-$ echo "resume" > /tmp/wp.fifo 
+wallpiper as a systemd service is also a perfect fit. 
+
+```ini
+# ~/.config/systemd/user/wallpiperd.service
+[Unit]
+Description=wallpiper daemon
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+Environment=WALLPIPER_PORTAL=hyprland
+Environment=WALLPIPER_STATE_FILE=%h/wallpiper.conf
+ExecStart=%h/.local/lib/wallpiper/wallpiperd # assuming you've installed with `just install-wallpiperd`
+Restart=on-failure
+
+[Install]
+WantedBy=graphical-session.target
 ```
 
-### CLI API
-
 ```sh
-# API Declarations
-list-wallpapers [-j|output as JSON]
-list-properties <workshop_id> [-j|output as JSON]
-
-# Examples
-$ ./target/release/wallpiperd list-wallpapers -j
-$ ./target/release/wallpiperd list-properties 2207463614 -j
+$ systemctl --user daemon-reload
+$ systemctl --user enable --now wallpiperd.service
+$ systemctl --user status wallpiperd.service
 ```
 
 ## License
