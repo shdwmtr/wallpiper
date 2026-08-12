@@ -44,7 +44,9 @@ impl CaptureLink {
     pub(crate) fn notify_frame(&self, slot: u32, sync_fd: RawFd) {
         let header = format!("FRAME {slot}\n");
         let result = if sync_fd >= 0 {
-            self.with_socket(|socket| send_with_fds(socket.as_raw_fd(), header.as_bytes(), &[sync_fd]))
+            self.with_socket(|socket| {
+                send_with_fds(socket.as_raw_fd(), header.as_bytes(), &[sync_fd])
+            })
         } else {
             self.with_socket(|socket| socket.send(header.as_bytes()).map(|_| ()))
         };

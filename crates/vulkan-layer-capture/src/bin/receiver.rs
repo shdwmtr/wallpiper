@@ -54,7 +54,10 @@ fn main() {
     let (header, fd) = loop {
         logln!("calling accept()...");
         let (stream, addr) = listener.accept().expect("accept");
-        logln!("accept() returned, peer addr={addr:?}, fd={}", stream.as_raw_fd());
+        logln!(
+            "accept() returned, peer addr={addr:?}, fd={}",
+            stream.as_raw_fd()
+        );
         match unsafe { recv_fd(stream.as_raw_fd()) } {
             Ok((header, fd)) => {
                 break (header, fd);
@@ -111,7 +114,11 @@ fn main() {
     let device = unsafe { instance.create_device(phys_device, &device_info, None) }
         .expect("create_device (does it support the needed extensions?)");
 
-    let row_stride = if stride > 0 { stride as u64 } else { width as u64 * 4 };
+    let row_stride = if stride > 0 {
+        stride as u64
+    } else {
+        width as u64 * 4
+    };
     let imported_size = row_stride * height as u64;
 
     let mut import_info = vk::ImportMemoryFdInfoKHR::builder()
@@ -122,8 +129,8 @@ fn main() {
         .size(imported_size)
         .usage(vk::BufferUsageFlags::TRANSFER_SRC)
         .sharing_mode(vk::SharingMode::EXCLUSIVE);
-    let imported_buffer =
-        unsafe { device.create_buffer(&imported_buffer_info, None) }.expect("create_buffer (imported)");
+    let imported_buffer = unsafe { device.create_buffer(&imported_buffer_info, None) }
+        .expect("create_buffer (imported)");
     logln!("created local buffer handle: {imported_buffer:?} size={imported_size}");
 
     let mem_req = unsafe { device.get_buffer_memory_requirements(imported_buffer) };
@@ -155,31 +162,37 @@ fn main() {
     let stage_mem_type_index = (0..mem_props.memory_type_count)
         .find(|&i| {
             (stage_mem_req.memory_type_bits & (1 << i)) != 0
-                && mem_props.memory_types[i as usize]
-                    .property_flags
-                    .contains(vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT)
+                && mem_props.memory_types[i as usize].property_flags.contains(
+                    vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+                )
         })
         .expect("no host-visible memory type for readback buffer");
     let stage_alloc_info = vk::MemoryAllocateInfo::builder()
         .allocation_size(stage_mem_req.size)
         .memory_type_index(stage_mem_type_index);
-    let staging_memory =
-        unsafe { device.allocate_memory(&stage_alloc_info, None) }.expect("allocate_memory (staging)");
-    unsafe { device.bind_buffer_memory(staging_buffer, staging_memory, 0) }.expect("bind_buffer_memory");
+    let staging_memory = unsafe { device.allocate_memory(&stage_alloc_info, None) }
+        .expect("allocate_memory (staging)");
+    unsafe { device.bind_buffer_memory(staging_buffer, staging_memory, 0) }
+        .expect("bind_buffer_memory");
 
     let pool_info = vk::CommandPoolCreateInfo::builder().queue_family_index(0);
-    let pool = unsafe { device.create_command_pool(&pool_info, None) }.expect("create_command_pool");
+    let pool =
+        unsafe { device.create_command_pool(&pool_info, None) }.expect("create_command_pool");
     let cmd_alloc_info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(pool)
         .level(vk::CommandBufferLevel::PRIMARY)
         .command_buffer_count(1);
-    let cmd = unsafe { device.allocate_command_buffers(&cmd_alloc_info) }.expect("alloc cmd buf")[0];
+    let cmd =
+        unsafe { device.allocate_command_buffers(&cmd_alloc_info) }.expect("alloc cmd buf")[0];
 
     let begin_info =
         vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
     unsafe { device.begin_command_buffer(cmd, &begin_info) }.expect("begin_command_buffer");
 
-    let region = vk::BufferCopy::builder().src_offset(0).dst_offset(0).size(imported_size);
+    let region = vk::BufferCopy::builder()
+        .src_offset(0)
+        .dst_offset(0)
+        .size(imported_size);
     unsafe {
         device.cmd_copy_buffer(cmd, imported_buffer, staging_buffer, &[*region]);
     }
@@ -196,7 +209,12 @@ fn main() {
     logln!("readback copy complete");
 
     let data_ptr = unsafe {
-        device.map_memory(staging_memory, 0, imported_size, vk::MemoryMapFlags::empty())
+        device.map_memory(
+            staging_memory,
+            0,
+            imported_size,
+            vk::MemoryMapFlags::empty(),
+        )
     }
     .expect("map_memory") as *const u8;
     let raw = unsafe { std::slice::from_raw_parts(data_ptr, imported_size as usize) };

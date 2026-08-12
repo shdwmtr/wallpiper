@@ -5,25 +5,39 @@ use crate::renderer::{set_paused, swap_renderer};
 use crate::selection::{self, save_selection, Selection};
 use crate::wallpaper::{self, Source};
 
-pub fn dispatch(args: &[&str]) -> bool {
+pub fn dispatch(args: &[&str]) -> Result<(), String> {
     let Some((&cmd, rest)) = args.split_first() else {
-        return false;
+        return Err("empty command".to_string());
     };
     match cmd {
-        "pause" => set_paused(true),
-        "resume" => set_paused(false),
-        "mute" => set_mute(true),
-        "unmute" => set_mute(false),
+        "pause" => {
+            set_paused(true);
+            Ok(())
+        }
+        "resume" => {
+            set_paused(false);
+            Ok(())
+        }
+        "mute" => {
+            set_mute(true);
+            Ok(())
+        }
+        "unmute" => {
+            set_mute(false);
+            Ok(())
+        }
         "volume" => set_volume(rest),
-        "debug" => set_debug_overlay(true),
-        "nodebug" => set_debug_overlay(false),
+        "debug" => {
+            set_debug_overlay(true);
+            Ok(())
+        }
+        "nodebug" => {
+            set_debug_overlay(false);
+            Ok(())
+        }
         "set" => set_wallpaper(rest),
-        "list-wallpapers" => list_wallpapers(rest),
-        "list-properties" => list_properties(rest),
-        "check-config" => config::describe(),
-        _ => return false,
+        _ => Err(format!("unknown command: {cmd}")),
     }
-    true
 }
 
 fn set_mute(muted: bool) {
@@ -31,39 +45,33 @@ fn set_mute(muted: bool) {
     selection::update_audio_state(None, Some(muted));
 }
 
-fn set_volume(args: &[&str]) {
-    let Some(level) = args.first().and_then(|s| s.parse::<u32>().ok()) else {
-        println!("usage: volume <0-100>");
-        return;
-    };
+fn set_volume(args: &[&str]) -> Result<(), String> {
+    let level = args
+        .first()
+        .and_then(|s| s.parse::<u32>().ok())
+        .ok_or_else(|| "usage: volume <0-100>".to_string())?;
     let level = level.min(100) as u8;
     audio::set_volume(level);
     selection::update_audio_state(Some(level), None);
+    Ok(())
 }
 
-fn set_wallpaper(args: &[&str]) {
+fn set_wallpaper(args: &[&str]) -> Result<(), String> {
     let (source, rest) = match args {
         ["--id", id, rest @ ..] => (Source::WorkshopId(id), rest),
         [] | ["--id"] => {
-            println!("usage: set <file> [location]\n       set --id <workshop_id> [location]");
-            return;
+            return Err(
+                "usage: set <file> [location]\n       set --id <workshop_id> [location]"
+                    .to_string(),
+            );
         }
         [path, rest @ ..] => (Source::Path(path), rest),
     };
 
-    let file = match wallpaper::resolve(source) {
-        Ok(file) => file,
-        Err(e) => {
-            println!("set: {e}");
-            return;
-        }
-    };
+    let file = wallpaper::resolve(source)?;
     let location = rest.first().copied().unwrap_or("default");
 
-    if let Err(e) = config::state_file_result() {
-        println!("set: {e}");
-        return;
-    }
+    config::state_file_result()?;
 
     let (volume, muted) = selection::load_selection()
         .map(|s| (s.volume, s.muted))
@@ -79,69 +87,5 @@ fn set_wallpaper(args: &[&str]) {
         volume,
         muted,
     });
-}
-
-fn list_wallpapers(args: &[&str]) {
-    let json = args.contains(&"-j");
-
-    let wallpapers = match wallpaper::list_wallpapers() {
-        Ok(wallpapers) => wallpapers,
-        Err(e) => return print_error(json, "list-wallpapers", &e),
-    };
-
-    if json {
-        return print_json(&wallpapers);
-    }
-
-    if wallpapers.is_empty() {
-        println!("no workshop wallpapers found");
-        return;
-    }
-    for w in wallpapers {
-        println!("{}  {}  ({})", w.id, w.title, w.kind);
-    }
-}
-
-fn list_properties(args: &[&str]) {
-    let json = args.contains(&"-j");
-    let Some(&id) = args.iter().find(|&&a| a != "-j") else {
-        return print_error(json, "list-properties", "usage: list-properties <workshop_id> [-j]");
-    };
-
-    let (title, properties) = match wallpaper::properties(id) {
-        Ok(result) => result,
-        Err(e) => return print_error(json, "list-properties", &e),
-    };
-
-    if json {
-        return print_json(&serde_json::json!({
-            "id": id,
-            "title": title,
-            "properties": properties,
-        }));
-    }
-
-    println!("{title} ({id})");
-    if properties.is_empty() {
-        println!("  no properties");
-        return;
-    }
-    for p in properties {
-        println!("  {:<24} {:<8} {:<32} = {}", p.key, p.kind, p.text, p.value);
-    }
-}
-
-fn print_json<T: serde::Serialize>(value: &T) {
-    match serde_json::to_string_pretty(value) {
-        Ok(json) => println!("{json}"),
-        Err(e) => println!("failed to serialize json: {e}"),
-    }
-}
-
-fn print_error(json: bool, cmd: &str, msg: &str) {
-    if json {
-        print_json(&serde_json::json!({ "error": msg }));
-    } else {
-        println!("{cmd}: {msg}");
-    }
+    Ok(())
 }

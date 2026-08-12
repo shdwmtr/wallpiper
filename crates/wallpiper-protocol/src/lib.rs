@@ -4,13 +4,23 @@ use std::os::unix::io::RawFd;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::mpsc;
 
+pub mod daemon_ctl;
 pub mod debug_overlay;
 use std::time::Duration;
+
+pub use daemon_ctl::{daemon_ctl_socket_path, send_daemon_command, spawn_daemon_ctl_listener};
 
 pub const CAPTURE_SOCKET_PATH: &str = "/tmp/wallpiper-capture.sock";
 
 pub fn ctl_socket_path(portal_name: &str) -> String {
     format!("/tmp/wallpiper-portal-{portal_name}-ctl.sock")
+}
+
+pub fn runtime_dir() -> String {
+    std::env::var("WALLPIPER_RUNTIME_DIR")
+        .ok()
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| "/tmp/wallpiper".to_string())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

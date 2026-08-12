@@ -131,7 +131,7 @@ pub fn proton_bin() -> String {
 }
 
 pub fn runtime_dir() -> String {
-    env_path("WALLPIPER_RUNTIME_DIR").unwrap_or_else(|| "/tmp/wallpiper".to_string())
+    wallpiper_protocol::runtime_dir()
 }
 
 pub fn state_file_result() -> Result<String, String> {

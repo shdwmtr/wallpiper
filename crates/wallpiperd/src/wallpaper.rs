@@ -67,7 +67,7 @@ pub fn list_wallpapers() -> Result<Vec<WallpaperInfo>, String> {
             .to_string();
         wallpapers.push(WallpaperInfo { id, title, kind });
     }
-    wallpapers.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
+    wallpapers.sort_by_key(|a| a.title.to_lowercase());
     Ok(wallpapers)
 }
 

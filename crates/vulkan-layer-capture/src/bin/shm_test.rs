@@ -16,9 +16,18 @@ macro_rules! logln {
 fn make_memfd(size: usize) -> RawFd {
     let name = c"wallpiper-shm-test";
     let fd = unsafe { libc::memfd_create(name.as_ptr(), 0) };
-    assert!(fd >= 0, "memfd_create failed: {:?}", std::io::Error::last_os_error());
+    assert!(
+        fd >= 0,
+        "memfd_create failed: {:?}",
+        std::io::Error::last_os_error()
+    );
     let res = unsafe { libc::ftruncate(fd, size as libc::off_t) };
-    assert_eq!(res, 0, "ftruncate failed: {:?}", std::io::Error::last_os_error());
+    assert_eq!(
+        res,
+        0,
+        "ftruncate failed: {:?}",
+        std::io::Error::last_os_error()
+    );
     fd
 }
 
@@ -41,7 +50,11 @@ fn fill_pattern(fd: RawFd, width: u32, height: u32, stride: u32, phase: u32) {
             let offset = (y * stride + x * 4) as usize;
             // Format_RGB32 byte order in memory: B, G, R, X (little-endian 0xffRRGGBB).
             let checker = (((x + phase) / 40) + (y / 40)) % 2 == 0;
-            let (r, g, b) = if checker { (255u8, 32u8, 32u8) } else { (32u8, 255u8, 32u8) };
+            let (r, g, b) = if checker {
+                (255u8, 32u8, 32u8)
+            } else {
+                (32u8, 255u8, 32u8)
+            };
             buf[offset] = b;
             buf[offset + 1] = g;
             buf[offset + 2] = r;
@@ -63,7 +76,8 @@ fn send_with_fd(socket: &UnixDatagram, header: &str, fd: RawFd) {
     msg.msg_iov = &mut iov;
     msg.msg_iovlen = 1;
     msg.msg_control = cmsg_buf.as_mut_ptr() as *mut libc::c_void;
-    msg.msg_controllen = unsafe { libc::CMSG_SPACE(std::mem::size_of::<libc::c_int>() as u32) as usize };
+    msg.msg_controllen =
+        unsafe { libc::CMSG_SPACE(std::mem::size_of::<libc::c_int>() as u32) as usize };
 
     unsafe {
         let cmsg = libc::CMSG_FIRSTHDR(&msg);

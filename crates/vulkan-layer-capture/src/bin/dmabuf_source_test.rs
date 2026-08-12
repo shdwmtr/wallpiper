@@ -38,7 +38,10 @@ unsafe fn send_fd(stream: &UnixStream, header: &str, fd: RawFd) {
     std::ptr::write_unaligned(data_ptr, fd);
 
     let n = libc::sendmsg(stream.as_raw_fd(), &msg, 0);
-    logln!("sendmsg raw return: {n} bytes (header was {} bytes)", header_bytes.len());
+    logln!(
+        "sendmsg raw return: {n} bytes (header was {} bytes)",
+        header_bytes.len()
+    );
 }
 
 fn main() {
@@ -75,50 +78,67 @@ fn main() {
         .queue_create_infos(&queue_infos)
         .enabled_extension_names(&ext_names);
 
-    let device = unsafe { instance.create_device(phys_device, &device_info, None) }
-        .expect("create_device");
+    let device =
+        unsafe { instance.create_device(phys_device, &device_info, None) }.expect("create_device");
 
     let format = vk::Format::B8G8R8A8_UNORM;
 
     let mut modifier_list_query = vk::DrmFormatModifierPropertiesListEXT::builder();
     let mut format_props2 = vk::FormatProperties2::builder().push_next(&mut modifier_list_query);
-    unsafe { instance.get_physical_device_format_properties2(phys_device, format, &mut format_props2) };
+    unsafe {
+        instance.get_physical_device_format_properties2(phys_device, format, &mut format_props2)
+    };
     let modifier_count = modifier_list_query.drm_format_modifier_count;
     logln!("driver reports {modifier_count} supported DRM format modifiers for {format:?}");
 
-    let mut modifier_props = vec![vk::DrmFormatModifierPropertiesEXT::default(); modifier_count as usize];
-    let mut modifier_list_query2 =
-        vk::DrmFormatModifierPropertiesListEXT::builder().drm_format_modifier_properties(&mut modifier_props);
+    let mut modifier_props =
+        vec![vk::DrmFormatModifierPropertiesEXT::default(); modifier_count as usize];
+    let mut modifier_list_query2 = vk::DrmFormatModifierPropertiesListEXT::builder()
+        .drm_format_modifier_properties(&mut modifier_props);
     let mut format_props2b = vk::FormatProperties2::builder().push_next(&mut modifier_list_query2);
-    unsafe { instance.get_physical_device_format_properties2(phys_device, format, &mut format_props2b) };
+    unsafe {
+        instance.get_physical_device_format_properties2(phys_device, format, &mut format_props2b)
+    };
 
     for m in &modifier_props {
         logln!(
             "  modifier={} plane_count={} tiling_features={:?}",
-            m.drm_format_modifier, m.drm_format_modifier_plane_count, m.drm_format_modifier_tiling_features
+            m.drm_format_modifier,
+            m.drm_format_modifier_plane_count,
+            m.drm_format_modifier_tiling_features
         );
     }
 
     let required = vk::FormatFeatureFlags::TRANSFER_DST | vk::FormatFeatureFlags::TRANSFER_SRC;
     let candidate_modifiers: Vec<u64> = modifier_props
         .iter()
-        .filter(|m| m.drm_format_modifier_plane_count == 1 && m.drm_format_modifier_tiling_features.contains(required))
+        .filter(|m| {
+            m.drm_format_modifier_plane_count == 1
+                && m.drm_format_modifier_tiling_features.contains(required)
+        })
         .map(|m| m.drm_format_modifier)
         .collect();
     logln!("single-plane candidates usable for our transfer usage: {candidate_modifiers:?}");
-    assert!(!candidate_modifiers.is_empty(), "no usable single-plane DRM format modifier found");
+    assert!(
+        !candidate_modifiers.is_empty(),
+        "no usable single-plane DRM format modifier found"
+    );
 
     let mut ext_image_info = vk::ExternalMemoryImageCreateInfo::builder()
         .handle_types(vk::ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
-    let mut modifier_create_info =
-        vk::ImageDrmFormatModifierListCreateInfoEXT::builder().drm_format_modifiers(&candidate_modifiers);
+    let mut modifier_create_info = vk::ImageDrmFormatModifierListCreateInfoEXT::builder()
+        .drm_format_modifiers(&candidate_modifiers);
 
     let image_info = vk::ImageCreateInfo::builder()
         .push_next(&mut ext_image_info)
         .push_next(&mut modifier_create_info)
         .image_type(vk::ImageType::TYPE_2D)
         .format(format)
-        .extent(vk::Extent3D { width: WIDTH, height: HEIGHT, depth: 1 })
+        .extent(vk::Extent3D {
+            width: WIDTH,
+            height: HEIGHT,
+            depth: 1,
+        })
         .mip_levels(1)
         .array_layers(1)
         .samples(vk::SampleCountFlags::TYPE_1)
@@ -185,12 +205,14 @@ fn main() {
     logln!("exported dma-buf fd={fd}");
 
     let pool_info = vk::CommandPoolCreateInfo::builder().queue_family_index(0);
-    let pool = unsafe { device.create_command_pool(&pool_info, None) }.expect("create_command_pool");
+    let pool =
+        unsafe { device.create_command_pool(&pool_info, None) }.expect("create_command_pool");
     let cmd_alloc_info = vk::CommandBufferAllocateInfo::builder()
         .command_pool(pool)
         .level(vk::CommandBufferLevel::PRIMARY)
         .command_buffer_count(1);
-    let cmd = unsafe { device.allocate_command_buffers(&cmd_alloc_info) }.expect("alloc cmd buf")[0];
+    let cmd =
+        unsafe { device.allocate_command_buffers(&cmd_alloc_info) }.expect("alloc cmd buf")[0];
 
     let begin_info =
         vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
@@ -272,7 +294,10 @@ fn main() {
     logln!("clear + foreign-queue-release submitted and complete");
 
     let stream = UnixStream::connect(SOCKET_PATH).expect("connect to capture socket");
-    let header = format!("{WIDTH} {HEIGHT} {} {stride} {chosen_modifier}\n", format.as_raw());
+    let header = format!(
+        "{WIDTH} {HEIGHT} {} {stride} {chosen_modifier}\n",
+        format.as_raw()
+    );
     unsafe { send_fd(&stream, &header, fd) };
     logln!("sent fd to wallpiper-display, sleeping to keep it alive...");
 

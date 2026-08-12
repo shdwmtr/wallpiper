@@ -30,7 +30,13 @@ pub fn set_paused(paused: bool) {
     );
 }
 
-pub fn spawn_renderer(file: &str, location: &str, monitor: MonitorGeometry, volume: u8, muted: bool) {
+pub fn spawn_renderer(
+    file: &str,
+    location: &str,
+    monitor: MonitorGeometry,
+    volume: u8,
+    muted: bool,
+) {
     let tag = tag_for(location);
     println!(
         "spawning renderer: file={file} location={location} tag={tag} {}x{}",
@@ -94,7 +100,13 @@ pub fn spawn_renderer(file: &str, location: &str, monitor: MonitorGeometry, volu
     audio::apply_saved_state(volume, muted);
 }
 
-pub fn swap_renderer(file: &str, location: &str, monitor: MonitorGeometry, volume: u8, muted: bool) {
+pub fn swap_renderer(
+    file: &str,
+    location: &str,
+    monitor: MonitorGeometry,
+    volume: u8,
+    muted: bool,
+) {
     let tag = tag_for(location);
 
     let existing = find_renderer_pids_for_tag(&tag);

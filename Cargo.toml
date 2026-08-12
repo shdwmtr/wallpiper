@@ -2,13 +2,11 @@
 resolver = "2"
 members = [
     "crates/wallpiperd",
+    "crates/wallpiperctl",
     "crates/wallpiper-protocol",
     "crates/vulkan-layer-capture",
     "crates/vulkan-layer",
-    "crates/vulkan-layer-macros",
-    "wallpiper-portal-hyprland",
-    "wallpiper-portal-i3",
-    "wallpiper-portal-sway"
+    "crates/vulkan-layer-macros"
 ]
 
 [profile.release]

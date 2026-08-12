@@ -277,8 +277,7 @@ impl WallpiperDeviceInfo {
             .handle_types(vk::ExternalSemaphoreHandleTypeFlags::SYNC_FD);
         let semaphore_info =
             vk::SemaphoreCreateInfo::builder().push_next(&mut export_semaphore_info);
-        let ready_semaphore = match unsafe { self.device.create_semaphore(&semaphore_info, None) }
-        {
+        let ready_semaphore = match unsafe { self.device.create_semaphore(&semaphore_info, None) } {
             Ok(s) => s,
             Err(e) => {
                 log!("create_semaphore (export) failed: {e:?}");
@@ -595,8 +594,12 @@ impl WallpiperDeviceInfo {
         slot.ownership = SlotOwnership::ReleasedToForeign;
         slot.fence_pending = true;
         let need_buf_msg = !slot.buf_sent;
-        let (stride, modifier, memory, ready_semaphore) =
-            (slot.stride, slot.modifier, slot.memory, slot.ready_semaphore);
+        let (stride, modifier, memory, ready_semaphore) = (
+            slot.stride,
+            slot.modifier,
+            slot.memory,
+            slot.ready_semaphore,
+        );
 
         drop(map);
 
@@ -605,7 +608,11 @@ impl WallpiperDeviceInfo {
             .handle_type(vk::ExternalSemaphoreHandleTypeFlags::SYNC_FD);
         let mut sync_fd: RawFd = -1;
         let sync_res = unsafe {
-            (self.procs.get_semaphore_fd_khr)(self.device.handle(), &*sync_get_fd_info, &mut sync_fd)
+            (self.procs.get_semaphore_fd_khr)(
+                self.device.handle(),
+                &*sync_get_fd_info,
+                &mut sync_fd,
+            )
         };
         if sync_res != vk::Result::SUCCESS {
             log!("vkGetSemaphoreFdKHR failed: {sync_res:?}, consumer will sample unsynchronized");
