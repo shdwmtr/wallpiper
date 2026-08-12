@@ -14,7 +14,7 @@ build:
         mkdir -p "$(dirname "$obj")"
         {{cc}} {{cflags}} -c -o "$obj" "$src"
         objs+=("$obj")
-    done < <(find we-swapchain-interpose -name '*.c')
+    done < <(find src -name '*.c')
     {{cc}} {{cflags}} -shared -o {{so}} "${objs[@]}" -ldl -lpthread
 
 clean:
