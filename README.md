@@ -10,22 +10,9 @@ Given Proton's translation layer holds, wallpiper natively supports all existing
 
 Compile time core dependencies, needed regardless of which compositor portal you're building. 
 
-- GNU Make >= 4.3
 - Proton >= 11.0
-- GNU GCC >= 4.7 (C99, `__atomic` builtins)
-- `pkg-config`
-- `libxcb` (provides `xcb-dri3`, `xcb-shm`, used by the i3wm portal)
-- `dbus` (used by the tray icon)
-- `wayland`, `wayland-protocols` (used by the Hyprland/Sway portals)
-- `vulkan-headers`
-
-On Arch Linux:
-
-```sh
-$ pacman -S make base-devel pkgconf libxcb dbus wayland wayland-protocols vulkan-headers
-```
-
-**NOTE**: If you use another Linux distribution, please contribute docs to this list and all relevant sub items below.
+- Make
+- Any C99 compiler
 
 Each portal has its own additional dependencies, build step, and install step. See its section
 below.
@@ -35,12 +22,12 @@ below.
 Start by building the core of `wallpiper`
 
 ```sh
-$ make build-core
+$ just build-core
 
 # You can also install wallpiper and its related binaries to %HOME/.local/lib/wallpiper/*
 # NOTE: This is not required, wallpiper can run from any directory. wallpiper assumes all its
 # required binaries are in the same directory on disk (not cwd)
-$ make install-wallpiperd
+$ just install-wallpiperd
 ```
 
 Now, you need to compile a relevant portal. Wallpiper supports the following DE/WM(s) through the following portals. Jump to whatever section is relevant to you. 
@@ -65,20 +52,20 @@ Implemented as an in-process GObject-Introspection library driven by a GNOME She
 On Arch Linux:
 
 ```sh
-$ pacman -S mutter gobject-introspection mesa libdrm
+$ pacman -S meson ninja mutter gobject-introspection mesa libdrm
 ```
 
 ### Build
 
 ```sh
-$ make build-gnome
+$ just build-gnome
 ```
 
 ### Install
 
 ```sh
 # requires root 
-$ make install-gnome
+$ just install-gnome
 ```
 
 Log out and back in (or restart GNOME Shell with `Alt`+`F2` -> `r` on X11), then ensure the extension is enabled. 
@@ -104,14 +91,14 @@ $ pacman -S cmake extra-cmake-modules qt6-base qt6-declarative
 ### Build
 
 ```sh
-$ make build-kde
+$ just build-kde
 ```
 
 ### Install
 
 ```sh
 # requires root 
-$ make install-kde
+$ just install-kde
 ```
 
 1. Open **System Settings** -> **Wallpaper**
@@ -120,7 +107,7 @@ $ make install-kde
 
 ## Hyprland portal
 
-A standalone C binary (`wallpiper-portal-hyprland`) that talks to the compositor directly over
+A standalone Rust binary (`wallpiper-portal-hyprland`) that talks to the compositor directly over
 Wayland, using `wlr-layer-shell`. No shell extension, and no install step.
 
 ### Dependencies
@@ -130,7 +117,7 @@ None beyond the [core dependencies](#dependencies).
 ### Build
 
 ```sh
-$ make build-hyprland
+$ just build-hyprland
 ```
 
 ## Sway portal
@@ -150,7 +137,7 @@ $ make build-hyprland
 > `OVERLAY` can't watch the cursor without also being the sole consumer. Sway would be unusable. 
 
 
-A standalone C binary (`wallpiper-portal-sway`) that talks to the compositor directly over
+A standalone Rust binary (`wallpiper-portal-sway`) that talks to the compositor directly over
 Wayland, using `wlr-layer-shell`. No shell extension, and no install step.
 
 ### Dependencies
@@ -160,12 +147,12 @@ None beyond the [core dependencies](#dependencies).
 ### Build
 
 ```sh
-$ make build-sway
+$ just build-sway
 ```
 
 ## i3wm portal
 
-A standalone C binary (`wallpiper-portal-i3`) that talks to the X server directly.
+A standalone Rust binary (`wallpiper-portal-i3`) that talks to the X server directly.
 No shell extension, and no install step.
 
 ### Dependencies
@@ -175,7 +162,7 @@ None beyond the [core dependencies](#dependencies).
 ### Build
 
 ```sh
-$ make build-i3
+$ just build-i3
 ```
 
 ## Usage
@@ -185,33 +172,33 @@ $ make build-i3
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `WALLPIPER_PORTAL` | *(required)* | Which portal to use: `hyprland`, `sway`, `i3`, `gnome`, `kde` |
+| `WALLPIPER_STATE_FILE` | *(required)* | Full path of the file to persist the selected wallpaper to (created if missing) |
 | `WALLPIPER_STEAM_ROOT` | auto-detected (`~/.local/share/Steam`, `~/.steam/steam`, `~/.steam/root`, or the Flatpak path) | Your Steam library root |
 | `WALLPIPER_PROTON_BIN` | auto-detected under `compatibilitytools.d/*/proton` or `steamapps/common/Proton */proton` | Path to the `proton` binary to run Wallpaper Engine with |
 | `WALLPIPER_WE_EXE` | `$STEAM_ROOT/steamapps/common/`<br>`wallpaper_engine/wallpaper64.exe` | Path to Wallpaper Engine's executable |
 | `WALLPIPER_TEMP_DIR` | `/tmp/wallpiper` | Directory used for ephemeral, session-scoped files (control sockets, the Vulkan capture layer's search path, tracked renderer PIDs) |
 | `WALLPIPER_RUNTIME_DIR` | `$XDG_STATE_HOME/wallpiper`, or `~/.local/state/wallpiper` | Directory used for state that should persist across reboots (e.g. the applied-DPI marker) |
-| `WALLPIPER_WEB_RENDERER_CEF_CMDLINE` | *(unset)* | Optional convenience for Wallpaper Engine's `steamuser.general.user.cefcommandline` setting in `config.json`, only applied if set |
-| `WALLPIPER_FPS` | *(unset)* | Optional convenience for Wallpaper Engine's `steamuser.general.user.fps` setting in `config.json`, only applied if set |
-
-`wallpiperd` always forces `steamuser.general.user.uihardwareacceleration` to `false` in Wallpaper Engine's `config.json` before spawning a renderer. `WALLPIPER_WEB_RENDERER_CEF_CMDLINE` and `WALLPIPER_FPS` are just convenience knobs for two more keys under that same `steamuser.general.user` object — all of these, including hardware acceleration, can also be set directly through Wallpaper Engine's own UI/settings (Settings → General), the env vars just save you from doing it by hand. Hardware-accelerated UI rendering is worth leaving off regardless of how you set it: it's a common source of crashes and rendering glitches under Proton, and disabling it costs little since it only affects Wallpaper Engine's own UI, not wallpaper playback.
 
 ```sh
 # Check what it resolved before launching for real
 $ ./target/release/wallpiperctl check-config
 
 # Example on hyprland
-$ WALLPIPER_PORTAL=hyprland ./target/release/wallpiper-daemon
+$ WALLPIPER_PORTAL=hyprland ./target/release/wallpiperd
 ```
 
 ## Command API
 
-`wallpiperctl` is a control process for the `wallpiper-daemon` daemon. The following commands require `wallpiper-daemon` to be actively running with the same `WALLPIPER_TEMP_DIR`.
+`wallpiperctl` is a control process for the `wallpiperd` daemon. The following commands require `wallpiperd` to be actively running with the same `WALLPIPER_RUNTIME_DIR`.
 
 ```sh
 $ wallpiperctl set /path/to/wallpaper.pkg
 $ wallpiperctl set --id <workshop_id>
 $ wallpiperctl pause
 $ wallpiperctl resume
+$ wallpiperctl mute
+$ wallpiperctl unmute
+$ wallpiperctl volume <0-100>
 $ wallpiperctl debug
 $ wallpiperctl nodebug
 
@@ -234,7 +221,8 @@ PartOf=graphical-session.target
 [Service]
 Type=simple
 Environment=WALLPIPER_PORTAL=hyprland
-ExecStart=%h/.local/lib/wallpiper/wallpiper-daemon # assuming you've installed with `make install-wallpiperd`
+Environment=WALLPIPER_STATE_FILE=%h/wallpiper.conf
+ExecStart=%h/.local/lib/wallpiper/wallpiperd # assuming you've installed with `just install-wallpiperd`
 Restart=on-failure
 
 [Install]
