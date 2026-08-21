@@ -1,3 +1,0 @@
-CompileFlags:
-  CompilationDatabase: ../../target/gnome
-  Remove: -mno-direct-extern-access
