@@ -207,34 +207,6 @@ $ wallpiperctl list-wallpapers [-j]
 $ wallpiperctl list-properties <workshop_id> [-j]
 ```
 
-## Systemd
-
-wallpiper as a systemd service is also a perfect fit. 
-
-```ini
-# ~/.config/systemd/user/wallpiperd.service
-[Unit]
-Description=wallpiper daemon
-After=graphical-session.target
-PartOf=graphical-session.target
-
-[Service]
-Type=simple
-Environment=WALLPIPER_PORTAL=hyprland
-Environment=WALLPIPER_STATE_FILE=%h/wallpiper.conf
-ExecStart=%h/.local/lib/wallpiper/wallpiperd # assuming you've installed with `just install-wallpiperd`
-Restart=on-failure
-
-[Install]
-WantedBy=graphical-session.target
-```
-
-```sh
-$ systemctl --user daemon-reload
-$ systemctl --user enable --now wallpiperd.service
-$ systemctl --user status wallpiperd.service
-```
-
 ## License
 
 Apache-2.0 see [`LICENSE.md`](./LICENSE.md).
