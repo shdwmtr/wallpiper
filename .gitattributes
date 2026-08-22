@@ -1,2 +1,2 @@
-portals/* linguist-vendored
-vendor/* linguist-vendored
+portals/**/* linguist-vendored
+vendor/**/* linguist-vendored
