@@ -1,15 +1,16 @@
 # 🗜️ wallpiper 
 
-A runtime-interpose translation layer for [Wallpaper Engine](https://www.wallpaperengine.io/en) on top of [Proton](https://github.com/valvesoftware/proton) to allow native Wallpaper Engine support on Linux.
-
-It's exactly what you'd expect, opposed to existing libraries like [linux-wallpaperengine](https://github.com/Almamu/linux-wallpaperengine) (arguably misled by AI), wallpiper runs Wallpaper Engine natively without re-inventing the wheel. 
-
+A runtime-interpose translation layer for [Wallpaper Engine](https://www.wallpaperengine.io/en) on top of [Proton](https://github.com/valvesoftware/proton) to allow native Wallpaper Engine support on Linux. 
 Given Proton's translation layer holds, wallpiper natively supports all existing Wallpaper Engine wallpapers. 
+
+![](https://github.com/user-attachments/assets/fd5bc023-bbe7-4ff0-8908-893b41785a27)
 
 ## System Requirements
 
-`wallpiper` aims to be light weight, all built binaries are ~100kb collectively. To build wallpipers core, the following dependencies are required: 
+Wallpiper aims to be light weight, all built binaries are ~100kb collectively. To build wallpipers core, the following dependencies are required: 
 
+- Wallpaper Engine
+- Steam
 - Proton >= 11.0
 - Make
 - C99 compiler
