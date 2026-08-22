@@ -210,4 +210,4 @@ $ wallpiperctl check-config
 
 ## License
 
-Apache-2.0 see [`LICENSE.md`](./LICENSE.md).
+Apache-2.0 see [`LICENSE`](./LICENSE).
