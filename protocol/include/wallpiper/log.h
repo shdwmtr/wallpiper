@@ -21,7 +21,7 @@ static void wp_log_init(void) { openlog(LOG_IDENTIFIER, LOG_PID, LOG_USER); }
 
 static void wp_log(const char *fmt, ...) WP_PRINTF_LIKE(1, 2);
 
-inline void wp_log(const char *fmt, ...) {
+static inline void wp_log(const char *fmt, ...) {
   pthread_once(&wp_log_once, wp_log_init);
 
   va_list args;

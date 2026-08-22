@@ -125,11 +125,11 @@ typedef unsigned int (*pfn_xkeysymtokeycode)(void *, unsigned long);
 typedef XModifierKeymapCompat *(*pfn_xgetmodifiermapping)(void *);
 typedef int (*pfn_xfreemodifiermap)(XModifierKeymapCompat *);
 
-inline void *interpose_resolve(const char *symbol_name) {
+static inline void *interpose_resolve(const char *symbol_name) {
   return dlsym(RTLD_NEXT, symbol_name);
 }
 
-inline char *x11_window_title(void *display, unsigned long window) {
+static inline char *x11_window_title(void *display, unsigned long window) {
   pfn_xfetchname fetch = (pfn_xfetchname)interpose_resolve("XFetchName");
   if (!fetch) {
     return NULL;
@@ -148,8 +148,8 @@ inline char *x11_window_title(void *display, unsigned long window) {
   return title;
 }
 
-inline bool x11_window_attributes(void *display, unsigned long window,
-                                  XWindowAttributesCompat *out) {
+static inline bool x11_window_attributes(void *display, unsigned long window,
+                                         XWindowAttributesCompat *out) {
   pfn_xgetwindowattributes get_attrs =
       (pfn_xgetwindowattributes)interpose_resolve("XGetWindowAttributes");
   if (!get_attrs) {

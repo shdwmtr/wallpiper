@@ -7,7 +7,7 @@ TARGET_DIR := ../../target/release
 OBJ_DIR := ../../target/objects/wallpiper-portal-wl-common
 GEN_DIR := $(OBJ_DIR)/generated
 LIB := $(TARGET_DIR)/libwallpiper-portal-wl-common.a
-CFLAGS ?= -std=gnu99 -O2 -Wall -Wextra -fPIC -fvisibility=hidden -D_GNU_SOURCE -I. -Iinclude -I../../protocol/include -I$(GEN_DIR) $(WAYLAND_CFLAGS)
+CFLAGS ?= -std=gnu99 -Os -Wall -Wextra -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I. -Iinclude -I../../protocol/include -I$(GEN_DIR) $(WAYLAND_CFLAGS)
 
 SRCS := \
 	buffers.c \

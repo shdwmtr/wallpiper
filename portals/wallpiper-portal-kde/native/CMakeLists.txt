@@ -52,6 +52,13 @@ target_link_libraries(wallpiper_capture_plugin PRIVATE
     EGL::EGL
 )
 
+target_compile_options(wallpiper_capture_plugin PRIVATE
+    -Os -ffunction-sections -fdata-sections
+)
+target_link_options(wallpiper_capture_plugin PRIVATE
+    -Wl,--gc-sections -s
+)
+
 qt6_query_qml_module(wallpiper_capture_plugin QMLDIR wallpiper_capture_qmldir)
 
 install(TARGETS wallpiper_capture_plugin

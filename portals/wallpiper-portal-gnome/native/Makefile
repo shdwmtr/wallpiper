@@ -1,7 +1,7 @@
 CC ?= cc
 GIR_SCANNER ?= g-ir-scanner
 GIR_COMPILER ?= g-ir-compiler
-CSTD_FLAGS ?= -std=gnu11 -O2 -Wall -Wextra
+CSTD_FLAGS ?= -std=gnu11 -Os -Wall -Wextra -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables
 
 MUTTER_PKGS := libmutter-18 mutter-cogl-18 mutter-clutter-18 gobject-2.0 gio-unix-2.0 gbm egl libdrm
 GI_PKGS := $(MUTTER_PKGS) gobject-introspection-1.0
@@ -50,13 +50,13 @@ GIR_SRCS := \
 build: $(SO) $(TEST_PRODUCER) $(TYPELIB)
 
 $(SO): $(LIB_OBJS) | $(TARGET_DIR)
-	$(CC) $(LIB_CFLAGS) -shared -o $@ $(LIB_OBJS) $(LIB_LIBS)
+	$(CC) $(LIB_CFLAGS) -shared -Wl,--gc-sections -s -o $@ $(LIB_OBJS) $(LIB_LIBS)
 
 $(OBJ_DIR)/%.o: src/%.c | $(OBJ_DIR)
 	$(CC) $(LIB_CFLAGS) -c -o $@ $<
 
 $(TEST_PRODUCER): $(OBJ_DIR)/test_producer.o | $(TARGET_DIR)
-	$(CC) $(TEST_PRODUCER_CFLAGS) -o $@ $(OBJ_DIR)/test_producer.o $(TEST_PRODUCER_LIBS)
+	$(CC) $(TEST_PRODUCER_CFLAGS) -Wl,--gc-sections -s -o $@ $(OBJ_DIR)/test_producer.o $(TEST_PRODUCER_LIBS)
 
 $(OBJ_DIR)/test_producer.o: tools/test_producer.c | $(OBJ_DIR)
 	$(CC) $(TEST_PRODUCER_CFLAGS) -c -o $@ $<

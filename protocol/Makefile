@@ -1,5 +1,5 @@
 CC ?= cc
-CFLAGS ?= -std=gnu99 -O2 -Wall -Wextra -fPIC -fvisibility=hidden -D_GNU_SOURCE -Iinclude -I../vendor/cjson
+CFLAGS ?= -std=gnu99 -Os -Wall -Wextra -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -Iinclude -I../vendor/cjson
 
 TARGET_DIR := ../target/release
 OBJ_DIR := ../target/objects/wallpiper-protocol
