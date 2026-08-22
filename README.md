@@ -192,19 +192,20 @@ $ WALLPIPER_PORTAL=hyprland ./target/release/wallpiperd
 `wallpiperctl` is a control process for the `wallpiperd` daemon. The following commands require `wallpiperd` to be actively running with the same `WALLPIPER_RUNTIME_DIR`.
 
 ```sh
-$ wallpiperctl set /path/to/wallpaper.pkg
-$ wallpiperctl set --id <workshop_id>
-$ wallpiperctl pause
-$ wallpiperctl resume
-$ wallpiperctl mute
-$ wallpiperctl unmute
-$ wallpiperctl volume <0-100>
+# In research, not yet implemented:
+# wallpiperctl set /path/to/wallpaper.pkg
+# wallpiperctl set --id <workshop_id>
+# wallpiperctl pause
+# wallpiperctl resume
+# wallpiperctl mute
+# wallpiperctl unmute
+# wallpiperctl volume <0-100>
+
 $ wallpiperctl debug
 $ wallpiperctl nodebug
-
-# stateless, do not require wallpiperd to be running.
 $ wallpiperctl list-wallpapers [-j]
 $ wallpiperctl list-properties <workshop_id> [-j]
+$ wallpiperctl check-config
 ```
 
 ## License
