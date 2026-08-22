@@ -1,6 +1,6 @@
 #pragma once
 
-#define WP_CAPTURE_LOG_PATH "/tmp/vulkan-layer-capture.log"
+#define WP_CAPTURE_LOG_PATH "/tmp/wallpiper-siphon.log"
 
 #define WP_CAPTURE_SLOT_COUNT 3
 #define WP_SLOT_FENCE_TIMEOUT_NS 4000000ull

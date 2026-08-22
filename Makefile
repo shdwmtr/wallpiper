@@ -15,13 +15,13 @@ build-protocol:
 	$(MAKE) -C protocol build
 
 build-daemon:
-	$(MAKE) -C src/wallpiper-daemon build
+	$(MAKE) -C src/wallpiperd build
 
 build-ctl:
 	$(MAKE) -C src/wallpiperctl build
 
 build-vklayer:
-	$(MAKE) -C src/vulkan-layer-capture build
+	$(MAKE) -C layer/siphon build
 
 build-interpose:
 	$(MAKE) -C layer/posix build
