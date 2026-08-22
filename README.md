@@ -51,7 +51,7 @@ Implemented as an in-process GObject-Introspection library driven by a GNOME She
 On Arch Linux:
 
 ```sh
-$ pacman -S meson ninja mutter gobject-introspection mesa libdrm
+$ pacman -S mutter gobject-introspection mesa libdrm
 ```
 
 ### Build
