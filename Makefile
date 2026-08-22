@@ -2,7 +2,8 @@ KDE_BUILD_DIR := target/kde
 
 .PHONY: help build build-core build-protocol build-daemon build-ctl build-vklayer \
         build-interpose build-dwmapi-shim build-wl-common build-hyprland build-i3 \
-        build-sway build-gnome build-kde install-gnome install-kde install-wallpiperd clean
+        build-sway build-gnome build-kde configure-kde install-gnome install-kde \
+        install-wallpiperd compile-commands clean
 
 help:
 	@awk '/^[a-zA-Z0-9_-]+:/{sub(/:.*/, "", $$1); print $$1}' $(MAKEFILE_LIST) | sort -u
@@ -44,9 +45,11 @@ build-sway:
 build-gnome:
 	$(MAKE) -C portals/wallpiper-portal-gnome/native build
 
-build-kde:
-	cmake -S portals/wallpiper-portal-kde/native -B $(KDE_BUILD_DIR) -DCMAKE_BUILD_TYPE=Release
+build-kde: configure-kde
 	cmake --build $(KDE_BUILD_DIR) --parallel
+
+configure-kde:
+	cmake -S portals/wallpiper-portal-kde/native -B $(KDE_BUILD_DIR) -DCMAKE_BUILD_TYPE=Release
 
 install-gnome: build-gnome
 	sudo $(MAKE) -C portals/wallpiper-portal-gnome/native install
@@ -71,6 +74,9 @@ install-wallpiperd: build-core
 	ln -sf "$(HOME)/.local/lib/wallpiper/wallpiperctl" "$(HOME)/.local/bin/wallpiperctl"
 	@echo "installed to $(HOME)/.local/lib/wallpiper, symlinked at $(HOME)/.local/bin/{wallpiper-daemon,wallpiperctl}"
 	@echo "make sure $(HOME)/.local/bin is on your PATH"
+
+compile-commands: configure-kde
+	./scripts/gen-compile-commands.sh
 
 clean:
 	rm -rf target

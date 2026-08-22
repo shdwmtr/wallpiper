@@ -198,22 +198,18 @@ void wp_tray_send_menu_command(uint32_t id) {
   if (!wp_menu_command_path(path, sizeof(path))) {
     return;
   }
-  char tmp[1040];
-  snprintf(tmp, sizeof(tmp), "%s.tmp", path);
-
   uint8_t bytes[4] = {
       (uint8_t)id,
       (uint8_t)(id >> 8),
       (uint8_t)(id >> 16),
       (uint8_t)(id >> 24),
   };
-  FILE *f = fopen(tmp, "wb");
+  FILE *f = fopen(path, "wb");
   if (!f) {
     return;
   }
   fwrite(bytes, 1, sizeof(bytes), f);
   fclose(f);
-  rename(tmp, path);
 }
 
 void wp_tray_debug_log(const char *fmt, ...) {
@@ -346,6 +342,12 @@ static void *menu_watcher_thread_main(void *arg) {
     wp_tray_debug_log("watcher: parsed %zu entries from %zu bytes",
                       entries.count, strlen(text));
     free(text);
+
+    if (entries.count == 0) {
+      wp_tray_debug_log("watcher: discarding empty parse (transient rewrite "
+                        "race), not publishing");
+      continue;
+    }
 
     wp_tray_state_on_menu_dump_changed(&entries);
   }

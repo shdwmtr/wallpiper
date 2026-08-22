@@ -2,21 +2,7 @@
 #include "cursor.h"
 #include "pe_iat.h"
 #include "util.h"
-#include "win32/libc.h"
-
-static int wp_wtoi(const WCHAR *s) {
-  int sign = 1;
-  if (*s == L'-') {
-    sign = -1;
-    s++;
-  }
-  int v = 0;
-  while (*s >= L'0' && *s <= L'9') {
-    v = v * 10 + (int)(*s - L'0');
-    s++;
-  }
-  return v * sign;
-}
+#include <stdlib.h>
 
 UINT32 g_tray_uid;
 UINT32 g_tray_callback_msg;
@@ -207,7 +193,7 @@ static BOOL WINAPI fake_Shell_NotifyIconW(DWORD dwMessage,
 void install_tray_hooks(void) {
   FARPROC origTray =
       patch_iat(GetModuleHandleW(NULL), "SHELL32.dll", "Shell_NotifyIconW",
-                (FARPROC)fake_Shell_NotifyIconW);
+                (FARPROC)(void *)fake_Shell_NotifyIconW);
   real_Shell_NotifyIconW = (ShellNotifyIconW_t)(void *)origTray;
   debug_log(
       origTray ? "install_progman_hook: patch_iat Shell_NotifyIconW OK"

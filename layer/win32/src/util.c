@@ -1,4 +1,6 @@
 #include "util.h"
+#include "constants.h"
+#include "imports.h"
 
 UINT64 unix_millis(void) {
   FILETIME ft;

@@ -1,6 +1,7 @@
 target/
 wallpiper-portal-gnome/native/.cache/
 /.cache
+/compile_commands.json
 
 vendor/tcc/*.o
 vendor/tcc/*.a

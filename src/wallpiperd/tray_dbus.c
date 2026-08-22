@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #define SNI_PATH "/StatusNotifierItem"
@@ -16,6 +17,9 @@
 #define PROPS_IFACE "org.freedesktop.DBus.Properties"
 #define INTROSPECT_IFACE "org.freedesktop.DBus.Introspectable"
 #define MENU_REFRESH_TIMEOUT_SEC 8
+#define MENU_REFRESH_RETRY_INTERVAL_SEC 1
+#define MENU_REFRESH_SETTLE_MS 80
+#define WP_TRAY_PREWARM_MAX_SEC 60
 
 typedef struct {
   pthread_mutex_t mutex;
@@ -29,6 +33,7 @@ typedef struct {
   wp_tray_entries_t entries;
   uint64_t generation;
   uint32_t revision;
+  bool refresh_in_progress;
 
   DBusConnection *conn;
   char well_known_name[128];
@@ -507,32 +512,14 @@ static void append_node_properties(DBusMessageIter *struct_iter,
   dbus_message_iter_close_container(struct_iter, &dict_iter);
 }
 
-#define WP_TRAY_SEPARATOR_ID_BASE 900000
-
-static int32_t entry_display_id(const wp_tray_entries_t *entries, int index) {
-  const wp_tray_entry_t *e = &entries->entries[index];
-  if (e->type_flags & WP_TRAY_MFT_SEPARATOR) {
-    return WP_TRAY_SEPARATOR_ID_BASE + index;
-  }
-  return (int32_t)e->id;
-}
+static int32_t entry_display_id(int index) { return (int32_t)index + 1; }
 
 static int find_index_by_id(const wp_tray_entries_t *entries, int32_t id) {
-  if (id >= WP_TRAY_SEPARATOR_ID_BASE) {
-    int index = id - WP_TRAY_SEPARATOR_ID_BASE;
-    if (index >= 0 && index < (int)entries->count &&
-        (entries->entries[index].type_flags & WP_TRAY_MFT_SEPARATOR)) {
-      return index;
-    }
+  int index = id - 1;
+  if (index < 0 || index >= (int)entries->count) {
     return -1;
   }
-  for (size_t i = 0; i < entries->count; i++) {
-    if (!(entries->entries[i].type_flags & WP_TRAY_MFT_SEPARATOR) &&
-        (int32_t)entries->entries[i].id == id) {
-      return (int)i;
-    }
-  }
-  return -1;
+  return index;
 }
 
 static int children_run_length(const wp_tray_entries_t *entries,
@@ -578,9 +565,8 @@ static void build_menu_node(DBusMessageIter *parent_iter,
       DBusMessageIter variant_iter;
       dbus_message_iter_open_container(&children_iter, DBUS_TYPE_VARIANT,
                                        "(ia{sv}av)", &variant_iter);
-      build_menu_node(&variant_iter, entries, child,
-                      entry_display_id(entries, i), i + 1, child_depth + 1,
-                      next_remaining);
+      build_menu_node(&variant_iter, entries, child, entry_display_id(i),
+                      i + 1, child_depth + 1, next_remaining);
       dbus_message_iter_close_container(&children_iter, &variant_iter);
 
       int run = children_run_length(entries, i + 1, child_depth + 1);
@@ -698,7 +684,20 @@ static DBusHandlerResult handle_menu_event(DBusConnection *conn,
   dbus_message_iter_get_basic(&arg_iter, &event_id);
 
   if (strcmp(event_id, "clicked") == 0 && id != 0) {
-    wp_tray_send_menu_command((uint32_t)id);
+    pthread_mutex_lock(&g_state.mutex);
+    wp_tray_entries_t entries = g_state.entries;
+    pthread_mutex_unlock(&g_state.mutex);
+
+    int idx = find_index_by_id(&entries, id);
+    if (idx >= 0 && !(entries.entries[idx].type_flags & WP_TRAY_MFT_SEPARATOR)) {
+      wp_tray_debug_log("event: clicked dbus_id=%d -> win32_id=%u", id,
+                        entries.entries[idx].id);
+      wp_tray_send_menu_command(entries.entries[idx].id);
+    } else {
+      wp_tray_debug_log("event: clicked dbus_id=%d did not resolve to an "
+                        "entry (idx=%d)",
+                        id, idx);
+    }
   }
 
   DBusMessage *reply = dbus_message_new_method_return(msg);
@@ -760,11 +759,53 @@ static DBusHandlerResult handle_menu_about_to_show_group(DBusConnection *conn,
 
 static DBusHandlerResult handle_menu_event_group(DBusConnection *conn,
                                                   DBusMessage *msg) {
+  pthread_mutex_lock(&g_state.mutex);
+  wp_tray_entries_t entries = g_state.entries;
+  pthread_mutex_unlock(&g_state.mutex);
+
+  DBusMessageIter arg_iter;
+  dbus_message_iter_init(msg, &arg_iter);
+  DBusMessageIter events_iter;
+  dbus_message_iter_recurse(&arg_iter, &events_iter);
+
+  dbus_int32_t error_ids[WP_TRAY_MAX_ENTRIES];
+  size_t error_count = 0;
+
+  while (dbus_message_iter_get_arg_type(&events_iter) == DBUS_TYPE_STRUCT) {
+    DBusMessageIter event_struct;
+    dbus_message_iter_recurse(&events_iter, &event_struct);
+
+    dbus_int32_t id = 0;
+    dbus_message_iter_get_basic(&event_struct, &id);
+    dbus_message_iter_next(&event_struct);
+
+    const char *event_id = "";
+    dbus_message_iter_get_basic(&event_struct, &event_id);
+
+    int idx = find_index_by_id(&entries, id);
+    bool ok =
+        idx >= 0 && !(entries.entries[idx].type_flags & WP_TRAY_MFT_SEPARATOR);
+
+    if (strcmp(event_id, "clicked") == 0 && ok) {
+      wp_tray_debug_log("event_group: clicked dbus_id=%d -> win32_id=%u", id,
+                        entries.entries[idx].id);
+      wp_tray_send_menu_command(entries.entries[idx].id);
+    } else if (!ok && error_count < WP_TRAY_MAX_ENTRIES) {
+      error_ids[error_count++] = id;
+    }
+
+    dbus_message_iter_next(&events_iter);
+  }
+
   DBusMessage *reply = dbus_message_new_method_return(msg);
   DBusMessageIter iter;
   dbus_message_iter_init_append(reply, &iter);
   DBusMessageIter errors_iter;
   dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "i", &errors_iter);
+  for (size_t i = 0; i < error_count; i++) {
+    dbus_message_iter_append_basic(&errors_iter, DBUS_TYPE_INT32,
+                                   &error_ids[i]);
+  }
   dbus_message_iter_close_container(&iter, &errors_iter);
   send_reply(conn, reply);
   return DBUS_HANDLER_RESULT_HANDLED;
@@ -1012,15 +1053,6 @@ static void emit_layout_updated(uint32_t revision) {
   dbus_message_unref(msg);
 }
 
-static bool entries_equal(const wp_tray_entries_t *a,
-                          const wp_tray_entries_t *b) {
-  if (a->count != b->count) {
-    return false;
-  }
-  return memcmp(a->entries, b->entries, sizeof(wp_tray_entry_t) * a->count) ==
-         0;
-}
-
 void wp_tray_state_on_menu_dump_changed(const wp_tray_entries_t *entries) {
   pthread_mutex_lock(&g_state.mutex);
   g_state.entries = *entries;
@@ -1029,50 +1061,117 @@ void wp_tray_state_on_menu_dump_changed(const wp_tray_entries_t *entries) {
   pthread_mutex_unlock(&g_state.mutex);
 }
 
-static bool refresh_menu_from_win32(void) {
-  wp_tray_debug_log("menu(): called");
+static bool timespec_ge(struct timespec a, struct timespec b) {
+  if (a.tv_sec != b.tv_sec) {
+    return a.tv_sec > b.tv_sec;
+  }
+  return a.tv_nsec >= b.tv_nsec;
+}
 
+static struct timespec timespec_add_ms(struct timespec t, long ms) {
+  t.tv_nsec += ms * 1000000L;
+  while (t.tv_nsec >= 1000000000L) {
+    t.tv_sec += 1;
+    t.tv_nsec -= 1000000000L;
+  }
+  return t;
+}
+
+static bool refresh_menu_from_win32(void) {
   pthread_mutex_lock(&g_state.mutex);
+  if (g_state.refresh_in_progress) {
+    wp_tray_debug_log("menu(): refresh already in flight, piggybacking");
+    while (g_state.refresh_in_progress) {
+      pthread_cond_wait(&g_state.entries_cond, &g_state.mutex);
+    }
+    size_t piggyback_count = g_state.entries.count;
+    pthread_mutex_unlock(&g_state.mutex);
+    wp_tray_debug_log("menu(): piggyback finished entries=%zu",
+                      piggyback_count);
+    return piggyback_count > 0;
+  }
+  g_state.refresh_in_progress = true;
   uint64_t start_generation = g_state.generation;
-  wp_tray_entries_t old_entries = g_state.entries;
   pthread_mutex_unlock(&g_state.mutex);
 
+  wp_tray_debug_log("menu(): called");
   wp_tray_debug_log("menu(): waiting for a fresh pull (start_generation=%llu",
                     (unsigned long long)start_generation);
 
   wp_tray_write_click(1);
 
-  pthread_mutex_lock(&g_state.mutex);
   struct timespec deadline;
   clock_gettime(CLOCK_REALTIME, &deadline);
   deadline.tv_sec += MENU_REFRESH_TIMEOUT_SEC;
+
+  pthread_mutex_lock(&g_state.mutex);
   bool timed_out = false;
   while (g_state.generation == start_generation) {
+    struct timespec retry_deadline;
+    clock_gettime(CLOCK_REALTIME, &retry_deadline);
+    retry_deadline.tv_sec += MENU_REFRESH_RETRY_INTERVAL_SEC;
+    bool final_wait = timespec_ge(retry_deadline, deadline);
+    if (final_wait) {
+      retry_deadline = deadline;
+    }
+
     int rc = pthread_cond_timedwait(&g_state.entries_cond, &g_state.mutex,
-                                    &deadline);
-    if (rc != 0) {
+                                    &retry_deadline);
+    if (g_state.generation != start_generation) {
+      break;
+    }
+    if (final_wait) {
       timed_out = true;
       break;
     }
+    if (rc != 0) {
+      pthread_mutex_unlock(&g_state.mutex);
+      wp_tray_debug_log("menu(): retry wait elapsed, re-sending click");
+      wp_tray_write_click(1);
+      pthread_mutex_lock(&g_state.mutex);
+    }
   }
-  wp_tray_entries_t new_entries = g_state.entries;
-  bool changed = !entries_equal(&old_entries, &new_entries);
-  if (changed) {
+
+  if (!timed_out) {
+    uint64_t settled_generation = g_state.generation;
+    struct timespec quiet_deadline;
+    clock_gettime(CLOCK_REALTIME, &quiet_deadline);
+    quiet_deadline = timespec_add_ms(quiet_deadline, MENU_REFRESH_SETTLE_MS);
+
+    for (;;) {
+      int rc = pthread_cond_timedwait(&g_state.entries_cond, &g_state.mutex,
+                                      &quiet_deadline);
+      if (g_state.generation != settled_generation) {
+        settled_generation = g_state.generation;
+        clock_gettime(CLOCK_REALTIME, &quiet_deadline);
+        quiet_deadline = timespec_add_ms(quiet_deadline, MENU_REFRESH_SETTLE_MS);
+        continue;
+      }
+      if (rc != 0) {
+        break;
+      }
+    }
+    wp_tray_debug_log("menu(): settled at generation=%llu",
+                      (unsigned long long)settled_generation);
+  }
+
+  bool fetched = !timed_out;
+  size_t entry_count = g_state.entries.count;
+  if (fetched) {
     g_state.revision++;
   }
   uint32_t revision = g_state.revision;
+  g_state.refresh_in_progress = false;
+  pthread_cond_broadcast(&g_state.entries_cond);
   pthread_mutex_unlock(&g_state.mutex);
 
-  wp_tray_debug_log(
-      "menu(): wait finished, timed_out=%d generation=%llu entries=%zu "
-      "changed=%d",
-      timed_out ? 1 : 0, (unsigned long long)g_state.generation,
-      new_entries.count, changed ? 1 : 0);
+  wp_tray_debug_log("menu(): wait finished, timed_out=%d entries=%zu",
+                    timed_out ? 1 : 0, entry_count);
 
-  if (changed) {
+  if (fetched) {
     emit_layout_updated(revision);
   }
-  return changed;
+  return fetched;
 }
 
 void wp_tray_state_on_icon_changed(wp_tray_icon_t *icon) {
@@ -1099,6 +1198,24 @@ static void *dbus_thread_main(void *arg) {
   return NULL;
 }
 
+static void *tray_announce_thread_main(void *arg) {
+  (void)arg;
+
+  wp_tray_debug_log("spawn: pre-warming menu before announcing to the host");
+  time_t prewarm_deadline = time(NULL) + WP_TRAY_PREWARM_MAX_SEC;
+  while (!refresh_menu_from_win32() && time(NULL) < prewarm_deadline) {
+    wp_tray_debug_log("spawn: pre-warm attempt failed, retrying");
+  }
+
+  pthread_t dbus_thread;
+  if (pthread_create(&dbus_thread, NULL, dbus_thread_main, NULL) == 0) {
+    pthread_detach(dbus_thread);
+  }
+
+  register_status_notifier_item();
+  return NULL;
+}
+
 void wp_tray_spawn(void) {
   pthread_mutex_init(&g_state.mutex, NULL);
   pthread_cond_init(&g_state.entries_cond, NULL);
@@ -1106,6 +1223,7 @@ void wp_tray_spawn(void) {
   g_state.entries.count = 0;
   g_state.generation = 0;
   g_state.revision = 0;
+  g_state.refresh_in_progress = false;
 
   dbus_threads_init_default();
 
@@ -1150,12 +1268,11 @@ void wp_tray_spawn(void) {
   dbus_connection_add_filter(g_state.conn, name_owner_changed_filter, NULL,
                              NULL);
 
-  register_status_notifier_item();
-
-  pthread_t thread;
-  if (pthread_create(&thread, NULL, dbus_thread_main, NULL) == 0) {
-    pthread_detach(thread);
-  }
-
   wp_tray_files_spawn_watchers();
+
+  pthread_t announce_thread;
+  if (pthread_create(&announce_thread, NULL, tray_announce_thread_main,
+                     NULL) == 0) {
+    pthread_detach(announce_thread);
+  }
 }

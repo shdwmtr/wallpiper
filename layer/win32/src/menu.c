@@ -1,7 +1,7 @@
 #include "menu.h"
 #include "pe_iat.h"
 #include "util.h"
-#include "win32/libc.h"
+#include <string.h>
 
 static size_t append_str(char *buf, size_t buf_cap, size_t pos, const char *s) {
   size_t len = (size_t)lstrlenA(s);
@@ -72,6 +72,7 @@ static size_t serialize_menu(HMENU hMenu, int depth, char *buf, size_t buf_cap,
 }
 
 UINT64 g_menu_owner_hwnd;
+static HMENU g_tray_root_menu;
 
 static void dump_menu_to_file(HMENU hMenu) {
   WCHAR path[MAX_PATH];
@@ -216,12 +217,120 @@ static BOOL WINAPI fake_InsertMenuItemW(HMENU hMenu, UINT item,
             "InsertMenuItemW: hMenu=%p item=%u byPos=%d id=%u text=%s -> %d",
             hMenu, item, fByPosition, id, textbuf, r);
   menu_build_log(logbuf);
+
+  if (r && g_tray_root_menu) {
+    dump_menu_to_file(g_tray_root_menu);
+  }
+  return r;
+}
+
+typedef HMENU(WINAPI *LoadMenuW_t)(HINSTANCE, LPCWSTR);
+typedef HMENU(WINAPI *GetSubMenu_t)(HMENU, int);
+typedef BOOL(WINAPI *InsertMenuW_t)(HMENU, UINT, UINT, UINT_PTR, LPCWSTR);
+typedef BOOL(WINAPI *SetMenuItemInfoW_t)(HMENU, UINT, BOOL, LPCMENUITEMINFOW);
+typedef BOOL(WINAPI *DestroyMenu_t)(HMENU);
+static LoadMenuW_t real_LoadMenuW;
+static GetSubMenu_t real_GetSubMenu;
+static InsertMenuW_t real_InsertMenuW;
+static SetMenuItemInfoW_t real_SetMenuItemInfoW;
+static DestroyMenu_t real_DestroyMenu;
+
+static HMENU g_pending_menu_wrapper;
+
+static HMENU WINAPI fake_LoadMenuW(HINSTANCE hInstance, LPCWSTR lpMenuName) {
+  HMENU h = real_LoadMenuW ? real_LoadMenuW(hInstance, lpMenuName) : NULL;
+
+  char logbuf[64];
+  wsprintfA(logbuf, "LoadMenuW: -> %p", h);
+  menu_build_log(logbuf);
+
+  if (h) {
+    g_pending_menu_wrapper = h;
+  }
+  return h;
+}
+
+static HMENU WINAPI fake_GetSubMenu(HMENU hMenu, int nPos) {
+  HMENU h = real_GetSubMenu ? real_GetSubMenu(hMenu, nPos) : NULL;
+
+  char logbuf[80];
+  wsprintfA(logbuf, "GetSubMenu: hMenu=%p pos=%d -> %p", hMenu, nPos, h);
+  menu_build_log(logbuf);
+
+  if (h && hMenu == g_pending_menu_wrapper) {
+    g_tray_root_menu = h;
+    dump_menu_to_file(h);
+  }
+  return h;
+}
+
+static BOOL WINAPI fake_InsertMenuW(HMENU hMenu, UINT position, UINT flags,
+                                    UINT_PTR idNewItem, LPCWSTR lpNewItem) {
+  BOOL r = real_InsertMenuW
+               ? real_InsertMenuW(hMenu, position, flags, idNewItem, lpNewItem)
+               : FALSE;
+
+  char textbuf[128] = "";
+  if (lpNewItem && !(flags & MF_BITMAP) && !(flags & MF_OWNERDRAW) &&
+      (ULONG_PTR)lpNewItem > 0xFFFF) {
+    int n = WideCharToMultiByte(CP_UTF8, 0, lpNewItem, -1, textbuf,
+                                sizeof(textbuf), NULL, NULL);
+    if (n <= 0) {
+      textbuf[0] = '\0';
+    }
+  }
+
+  char logbuf[220];
+  wsprintfA(logbuf,
+            "InsertMenuW: hMenu=%p position=%u flags=0x%lx id=%lu text=%s "
+            "-> %d",
+            hMenu, position, (unsigned long)flags, (unsigned long)idNewItem,
+            textbuf, r);
+  menu_build_log(logbuf);
+
+  if (r && g_tray_root_menu) {
+    dump_menu_to_file(g_tray_root_menu);
+  }
+  return r;
+}
+
+static BOOL WINAPI fake_SetMenuItemInfoW(HMENU hMenu, UINT item,
+                                         BOOL fByPosition,
+                                         LPCMENUITEMINFOW lpmii) {
+  BOOL r = real_SetMenuItemInfoW
+               ? real_SetMenuItemInfoW(hMenu, item, fByPosition, lpmii)
+               : FALSE;
+
+  char logbuf[128];
+  wsprintfA(logbuf, "SetMenuItemInfoW: hMenu=%p item=%u byPos=%d -> %d", hMenu,
+            item, fByPosition, r);
+  menu_build_log(logbuf);
+
+  if (r && g_tray_root_menu) {
+    dump_menu_to_file(g_tray_root_menu);
+  }
+  return r;
+}
+
+static BOOL WINAPI fake_DestroyMenu(HMENU hMenu) {
+  BOOL r = real_DestroyMenu ? real_DestroyMenu(hMenu) : FALSE;
+
+  char logbuf[64];
+  wsprintfA(logbuf, "DestroyMenu: hMenu=%p -> %d", hMenu, r);
+  menu_build_log(logbuf);
+
+  if (r && hMenu == g_tray_root_menu) {
+    g_tray_root_menu = NULL;
+  } else if (r && g_tray_root_menu) {
+    dump_menu_to_file(g_tray_root_menu);
+  }
   return r;
 }
 
 void install_menu_hooks(void) {
-  FARPROC origTPM = patch_iat(GetModuleHandleW(NULL), "USER32.dll",
-                              "TrackPopupMenu", (FARPROC)fake_TrackPopupMenu);
+  FARPROC origTPM =
+      patch_iat(GetModuleHandleW(NULL), "USER32.dll", "TrackPopupMenu",
+                (FARPROC)(void *)fake_TrackPopupMenu);
   real_TrackPopupMenu = (TrackPopupMenu_t)(void *)origTPM;
   debug_log(origTPM
                 ? "install_progman_hook: patch_iat TrackPopupMenu OK"
@@ -229,15 +338,16 @@ void install_menu_hooks(void) {
 
   FARPROC origTPMEx =
       patch_iat(GetModuleHandleW(NULL), "USER32.dll", "TrackPopupMenuEx",
-                (FARPROC)fake_TrackPopupMenuEx);
+                (FARPROC)(void *)fake_TrackPopupMenuEx);
   real_TrackPopupMenuEx = (TrackPopupMenuEx_t)(void *)origTPMEx;
   debug_log(origTPMEx
                 ? "install_progman_hook: patch_iat TrackPopupMenuEx OK"
                 : "install_progman_hook: patch_iat TrackPopupMenuEx NOT FOUND");
 
   FARPROC origCPM = NULL;
-  int nCPM = patch_iat_all_modules("USER32.dll", "CreatePopupMenu",
-                                   (FARPROC)fake_CreatePopupMenu, &origCPM);
+  int nCPM =
+      patch_iat_all_modules("USER32.dll", "CreatePopupMenu",
+                            (FARPROC)(void *)fake_CreatePopupMenu, &origCPM);
   real_CreatePopupMenu = (CreatePopupMenu_t)(void *)origCPM;
   {
     char b[80];
@@ -250,7 +360,7 @@ void install_menu_hooks(void) {
 
   FARPROC origAMW = NULL;
   int nAMW = patch_iat_all_modules("USER32.dll", "AppendMenuW",
-                                   (FARPROC)fake_AppendMenuW, &origAMW);
+                                   (FARPROC)(void *)fake_AppendMenuW, &origAMW);
   real_AppendMenuW = (AppendMenuW_t)(void *)origAMW;
   {
     char b[80];
@@ -262,8 +372,9 @@ void install_menu_hooks(void) {
   }
 
   FARPROC origIMIW = NULL;
-  int nIMIW = patch_iat_all_modules("USER32.dll", "InsertMenuItemW",
-                                    (FARPROC)fake_InsertMenuItemW, &origIMIW);
+  int nIMIW =
+      patch_iat_all_modules("USER32.dll", "InsertMenuItemW",
+                            (FARPROC)(void *)fake_InsertMenuItemW, &origIMIW);
   real_InsertMenuItemW = (InsertMenuItemW_t)(void *)origIMIW;
   {
     char b[80];
@@ -271,6 +382,72 @@ void install_menu_hooks(void) {
               "install_progman_hook: patch_iat_all_modules InsertMenuItemW "
               "patched=%d modules",
               nIMIW);
+    debug_log(b);
+  }
+
+  FARPROC origLMW = NULL;
+  int nLMW = patch_iat_all_modules("USER32.dll", "LoadMenuW",
+                                   (FARPROC)(void *)fake_LoadMenuW, &origLMW);
+  real_LoadMenuW = (LoadMenuW_t)(void *)origLMW;
+  {
+    char b[80];
+    wsprintfA(b,
+              "install_progman_hook: patch_iat_all_modules LoadMenuW "
+              "patched=%d modules",
+              nLMW);
+    debug_log(b);
+  }
+
+  FARPROC origGSM = NULL;
+  int nGSM = patch_iat_all_modules("USER32.dll", "GetSubMenu",
+                                   (FARPROC)(void *)fake_GetSubMenu, &origGSM);
+  real_GetSubMenu = (GetSubMenu_t)(void *)origGSM;
+  {
+    char b[80];
+    wsprintfA(b,
+              "install_progman_hook: patch_iat_all_modules GetSubMenu "
+              "patched=%d modules",
+              nGSM);
+    debug_log(b);
+  }
+
+  FARPROC origIMW = NULL;
+  int nIMW = patch_iat_all_modules("USER32.dll", "InsertMenuW",
+                                   (FARPROC)(void *)fake_InsertMenuW, &origIMW);
+  real_InsertMenuW = (InsertMenuW_t)(void *)origIMW;
+  {
+    char b[80];
+    wsprintfA(b,
+              "install_progman_hook: patch_iat_all_modules InsertMenuW "
+              "patched=%d modules",
+              nIMW);
+    debug_log(b);
+  }
+
+  FARPROC origSMIIW = NULL;
+  int nSMIIW =
+      patch_iat_all_modules("USER32.dll", "SetMenuItemInfoW",
+                            (FARPROC)(void *)fake_SetMenuItemInfoW, &origSMIIW);
+  real_SetMenuItemInfoW = (SetMenuItemInfoW_t)(void *)origSMIIW;
+  {
+    char b[80];
+    wsprintfA(b,
+              "install_progman_hook: patch_iat_all_modules SetMenuItemInfoW "
+              "patched=%d modules",
+              nSMIIW);
+    debug_log(b);
+  }
+
+  FARPROC origDM = NULL;
+  int nDM = patch_iat_all_modules("USER32.dll", "DestroyMenu",
+                                  (FARPROC)(void *)fake_DestroyMenu, &origDM);
+  real_DestroyMenu = (DestroyMenu_t)(void *)origDM;
+  {
+    char b[80];
+    wsprintfA(b,
+              "install_progman_hook: patch_iat_all_modules DestroyMenu "
+              "patched=%d modules",
+              nDM);
     debug_log(b);
   }
 }
