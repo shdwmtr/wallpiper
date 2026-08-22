@@ -11,3 +11,4 @@ vendor/tcc/tccdefs_.h
 vendor/tcc/config.h
 vendor/tcc/config.mak
 vendor/tcc/config.texi
+start-wallpiper.sh
