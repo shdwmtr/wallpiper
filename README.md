@@ -8,26 +8,25 @@ Given Proton's translation layer holds, wallpiper natively supports all existing
 
 ## System Requirements
 
-Compile time core dependencies, needed regardless of which compositor portal you're building. 
+`wallpiper` aims to be light weight, all built binaries are ~100kb collectively. To build wallpipers core, the following dependencies are required: 
 
 - Proton >= 11.0
 - Make
-- Any C99 compiler
+- C99 compiler
 
-Each portal has its own additional dependencies, build step, and install step. See its section
-below.
+Additionally, select portals may require further dependencies. See its section below.
 
 ## Installation
 
 Start by building the core of `wallpiper`
 
 ```sh
-$ just build-core
+$ make build-core
 
 # You can also install wallpiper and its related binaries to %HOME/.local/lib/wallpiper/*
 # NOTE: This is not required, wallpiper can run from any directory. wallpiper assumes all its
 # required binaries are in the same directory on disk (not cwd)
-$ just install-wallpiperd
+$ make install-wallpiperd
 ```
 
 Now, you need to compile a relevant portal. Wallpiper supports the following DE/WM(s) through the following portals. Jump to whatever section is relevant to you. 
@@ -58,14 +57,14 @@ $ pacman -S meson ninja mutter gobject-introspection mesa libdrm
 ### Build
 
 ```sh
-$ just build-gnome
+$ make build-gnome
 ```
 
 ### Install
 
 ```sh
 # requires root 
-$ just install-gnome
+$ make install-gnome
 ```
 
 Log out and back in (or restart GNOME Shell with `Alt`+`F2` -> `r` on X11), then ensure the extension is enabled. 
@@ -91,14 +90,14 @@ $ pacman -S cmake extra-cmake-modules qt6-base qt6-declarative
 ### Build
 
 ```sh
-$ just build-kde
+$ make build-kde
 ```
 
 ### Install
 
 ```sh
 # requires root 
-$ just install-kde
+$ make install-kde
 ```
 
 1. Open **System Settings** -> **Wallpaper**
@@ -117,7 +116,7 @@ None beyond the [core dependencies](#dependencies).
 ### Build
 
 ```sh
-$ just build-hyprland
+$ make build-hyprland
 ```
 
 ## Sway portal
@@ -147,7 +146,7 @@ None beyond the [core dependencies](#dependencies).
 ### Build
 
 ```sh
-$ just build-sway
+$ make build-sway
 ```
 
 ## i3wm portal
@@ -162,7 +161,7 @@ None beyond the [core dependencies](#dependencies).
 ### Build
 
 ```sh
-$ just build-i3
+$ make build-i3
 ```
 
 ## Usage
