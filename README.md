@@ -2,32 +2,28 @@
 
 An ~100kb native translation layer for Wallpaper Engine on GNU/Linux based compositors.
 
-## System Requirements
+## Dependencies
 
-Wallpiper aims to be light weight. To build wallpipers core, the following dependencies are required: 
-
-- Wallpaper Engine
-- Steam
-- Proton >= 11.0
-- Make
-- C99 compiler
-
-Additionally, select portals may require further dependencies. See its section below.
+* make
+* proton-v11.0 or later
+* a c99 compiler
 
 ## Installation
 
-Start by building the core of `wallpiper`
+### Wallpiper Core
+
+Start by building the core of wallpiper
 
 ```sh
 $ make build-core
 
-# You can also install wallpiper and its related binaries to %HOME/.local/lib/wallpiper/*
-# NOTE: This is not required, wallpiper can run from any directory. wallpiper assumes all its
-# required binaries are in the same directory on disk (not cwd)
+# optionally install wallpiper to `%HOME/.local/lib/wallpiper/`
 $ make install-wallpiperd
 ```
 
-Now, you need to compile a relevant portal. Wallpiper supports the following DE/WM(s) through the following portals. Jump to whatever section is relevant to you. 
+### Wallpiper Portals
+
+Wallpiper supports the following DE/WM(s) through the following portals. Jump to whatever section is relevant to you. 
 
 * [wallpiper-portal-gnome](#gnome-mutter-portal)
 * [wallpiper-portal-kde](#kde-plasma-portal)
@@ -43,8 +39,10 @@ Implemented as an in-process GObject-Introspection library driven by a GNOME She
 
 ### Dependencies
 
-- `libmutter-18`, `mutter-cogl-18`, `mutter-clutter-18`, `gobject-2.0`, `gio-unix-2.0`, `gbm`, `egl`, `libdrm`
-- `gobject-introspection` (provides `g-ir-scanner`/`g-ir-compiler`, used to generate the typelib)
+* mutter
+* gobject-introspection
+* mesa
+* libdrm
 
 On Arch Linux:
 
@@ -56,16 +54,12 @@ $ pacman -S mutter gobject-introspection mesa libdrm
 
 ```sh
 $ make build-gnome
-```
 
-### Install
-
-```sh
 # requires root 
 $ make install-gnome
 ```
 
-Log out and back in (or restart GNOME Shell with `Alt`+`F2` -> `r` on X11), then ensure the extension is enabled. 
+Log out and back in, then ensure the extension is enabled. 
 
 ## KDE (Plasma) portal
 
@@ -73,11 +67,10 @@ Implemented as a Qt Quick/QML plugin, installed as a Plasma 6 Wallpaper KPackage
 
 ### Dependencies
 
-- cmake >= 3.16
-- ECM (extra-cmake-modules)
-- Qt6 (Core, Gui, Qml, Quick) >= 6.7
-- EGL
-- `kpackagetool6`, for installing the wallpaper plugin
+- cmake
+- extra-cmake-modules
+- qt6-base
+- qt6-declarative
 
 On Arch Linux:
 
@@ -89,23 +82,18 @@ $ pacman -S cmake extra-cmake-modules qt6-base qt6-declarative
 
 ```sh
 $ make build-kde
-```
 
-### Install
-
-```sh
 # requires root 
 $ make install-kde
 ```
 
-1. Open **System Settings** -> **Wallpaper**
-2. Open the **Wallpaper type** dropdown at the top of the panel
-3. Select **Wallpiper**
+1. Open System Settings -> Wallpaper
+2. Open the Wallpaper type dropdown at the top of the panel
+3. Select Wallpiper
 
 ## Hyprland portal
 
-A standalone Rust binary (`wallpiper-portal-hyprland`) that talks to the compositor directly over
-Wayland, using `wlr-layer-shell`. No shell extension, and no install step.
+Uses `wlr-layer-shell`. No shell extension, and no install step.
 
 ### Dependencies
 
@@ -133,9 +121,7 @@ $ make build-hyprland
 > driving mouse events. Mounting to `OVERLAY` instead of the `BACKGROUND` surface to actually intercept the mouse is not a proper solution.
 > `OVERLAY` can't watch the cursor without also being the sole consumer. Sway would be unusable. 
 
-
-A standalone Rust binary (`wallpiper-portal-sway`) that talks to the compositor directly over
-Wayland, using `wlr-layer-shell`. No shell extension, and no install step.
+Uses `wlr-layer-shell`. No shell extension, and no install step.
 
 ### Dependencies
 
@@ -149,8 +135,7 @@ $ make build-sway
 
 ## i3wm portal
 
-A standalone Rust binary (`wallpiper-portal-i3`) that talks to the X server directly.
-No shell extension, and no install step.
+Interfaces with X11 directly. No shell extension, and no install step.
 
 ### Dependencies
 
