@@ -4,9 +4,8 @@ An ~100kb native translation layer for Wallpaper Engine on GNU/Linux based compo
 
 ## Dependencies
 
-* make
-* proton-v11.0 or later
-* a c99 compiler
+* A C99 Compiler
+* Valve's Proton (>= v11.0 was tested working)
 
 ## Installation
 
@@ -53,7 +52,7 @@ $ pacman -S mutter gobject-introspection mesa libdrm
 ### Build
 
 ```sh
-$ make build-gnome
+$ ./build.sh build-gnome
 
 # requires root 
 $ ./build.sh install-gnome
@@ -81,7 +80,7 @@ $ pacman -S cmake extra-cmake-modules qt6-base qt6-declarative
 ### Build
 
 ```sh
-$ make build-kde
+$ ./build.sh build-kde
 
 # requires root 
 $ ./build.sh install-kde
