@@ -2,6 +2,8 @@
 
 An ~100kb native translation layer for Wallpaper Engine on GNU/Linux based compositors.
 
+If you find this utility/tool useful, please consider giving it a star ⭐
+
 ## Dependencies
 
 * make
@@ -262,6 +264,11 @@ $ wallpiperctl debug-off
 $ wallpiperctl check-config
 ```
 
+
+## Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md). If wallpiper is useful to you, a star helps others find it!
+
 ## License
 
-Apache-2.0 see [`LICENSE`](./LICENSE).
+MIT see [`LICENSE`](./LICENSE).
