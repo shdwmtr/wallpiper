@@ -131,7 +131,7 @@ static void *daemon_ctl_listener_thread_main(void *arg) {
 }
 
 static void run(void) {
-  printf("wallpiper-daemon starting\n");
+  printf("wallpiperd starting\n");
 
   wp_ignore_sigpipe();
   wp_reap_children_forever();
@@ -163,7 +163,7 @@ static void run(void) {
   pthread_create(&ctl_thread, NULL, daemon_ctl_listener_thread_main, NULL);
   pthread_detach(ctl_thread);
 
-  printf("wallpiper-daemon ready\n");
+  printf("wallpiperd ready\n");
   for (;;) {
     sleep(3600);
   }
@@ -174,7 +174,7 @@ int main(int argc, char **argv) {
 
   (void)argv;
   if (argc > 1) {
-    fprintf(stderr, "wallpiper-daemon takes no arguments; use `wallpiperctl` "
+    fprintf(stderr, "wallpiperd takes no arguments; use `wallpiperctl` "
                     "to control a running daemon\n");
     return 1;
   }

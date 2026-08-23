@@ -23,7 +23,7 @@ static bool is_daemon_command(const char *cmd) {
 static void print_usage(void) {
   fprintf(stderr, "usage: wallpiperctl <command>\n"
                   "\n"
-                  "daemon commands (require a running wallpiper-daemon):\n"
+                  "daemon commands (require a running wallpiperd):\n"
                   "  debug-on | debug-off\n"
                   "\n"
                   "standalone commands:\n"

@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 void wp_cleanup(void) {
-  printf("wallpiper-daemon shutting down, cleaning up spawned processes\n");
+  printf("wallpiperd shutting down, cleaning up spawned processes\n");
 
   bool detached = wp_portal_detach_display();
   printf("display detach handshake -> %s\n",

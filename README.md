@@ -15,10 +15,10 @@ An ~100kb native translation layer for Wallpaper Engine on GNU/Linux based compo
 Start by building the core of wallpiper
 
 ```sh
-$ make build-core
+$ ./build.sh build-core
 
 # optionally install wallpiper to `%HOME/.local/lib/wallpiper/`
-$ make install-wallpiperd
+$ ./build.sh install-wallpiperd
 ```
 
 ### Wallpiper Portals
@@ -56,7 +56,7 @@ $ pacman -S mutter gobject-introspection mesa libdrm
 $ make build-gnome
 
 # requires root 
-$ make install-gnome
+$ ./build.sh install-gnome
 ```
 
 Log out and back in, then ensure the extension is enabled. 
@@ -84,7 +84,7 @@ $ pacman -S cmake extra-cmake-modules qt6-base qt6-declarative
 $ make build-kde
 
 # requires root 
-$ make install-kde
+$ ./build.sh install-kde
 ```
 
 1. Open System Settings -> Wallpaper
@@ -102,7 +102,7 @@ None beyond the [core dependencies](#dependencies).
 ### Build
 
 ```sh
-$ make build-hyprland
+$ ./build.sh build-hyprland
 ```
 
 ## Sway portal
@@ -130,7 +130,7 @@ None beyond the [core dependencies](#dependencies).
 ### Build
 
 ```sh
-$ make build-sway
+$ ./build.sh build-sway
 ```
 
 ## i3wm portal
@@ -144,7 +144,7 @@ None beyond the [core dependencies](#dependencies).
 ### Build
 
 ```sh
-$ make build-i3
+$ ./build.sh build-i3
 ```
 
 ## Usage

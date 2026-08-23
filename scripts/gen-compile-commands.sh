@@ -24,23 +24,21 @@ is_source() {
     [[ "$1" =~ \.(c|cc|cpp|cxx|m|mm)$ ]]
 }
 
-dirstack=("$ROOT")
+CBUILD_TRACE_DIR="$(mktemp -d)"
+export CBUILD_TRACE_DIR
+trap 'rm -rf "$CBUILD_TRACE_DIR"' EXIT
+
+"$ROOT/build.sh" "$TARGET" >&2
+
 declare -A entries
 
-while IFS= read -r line; do
-    if [[ "$line" =~ ^make(\[[0-9]+\])?:\ Entering\ directory\ \'(.+)\'$ ]]; then
-        dirstack+=("${BASH_REMATCH[2]}")
-        continue
-    fi
-    if [[ "$line" =~ ^make(\[[0-9]+\])?:\ Leaving\ directory\ \'(.+)\'$ ]]; then
-        if [ "${#dirstack[@]}" -gt 1 ]; then
-            dirstack=("${dirstack[@]:0:${#dirstack[@]}-1}")
-        fi
-        continue
-    fi
+for f in "$CBUILD_TRACE_DIR"/rec.*; do
+    [ -e "$f" ] || continue
+    mapfile -t lines <"$f"
+    [ "${#lines[@]}" -lt 2 ] && continue
+    cwd="${lines[0]}"
+    argv=("${lines[@]:1}")
 
-    read -ra argv <<<"$line"
-    [ "${#argv[@]}" -eq 0 ] && continue
     is_compiler "${argv[0]}" || continue
 
     sources=()
@@ -55,12 +53,11 @@ while IFS= read -r line; do
         args_json+="\"$(json_escape "$tok")\""
     done
 
-    cwd="${dirstack[-1]}"
     for src in "${sources[@]}"; do
         key="${cwd}"$'\x1f'"${src}"
         entries["$key"]="{\"directory\": \"$(json_escape "$cwd")\", \"file\": \"$(json_escape "$src")\", \"arguments\": [$args_json]}"
     done
-done < <(make -C "$ROOT" -n -w -B "$TARGET")
+done
 
 {
     printf '[\n'
@@ -77,4 +74,4 @@ done < <(make -C "$ROOT" -n -w -B "$TARGET")
     printf '\n]\n'
 } >"$OUT"
 
-echo "wrote ${#entries[@]} make-derived entries (+ $([ -f "$KDE_CDB" ] && echo kde || echo no) kde entries) to $OUT" >&2
+echo "wrote ${#entries[@]} build-derived entries (+ $([ -f "$KDE_CDB" ] && echo kde || echo no) kde entries) to $OUT" >&2

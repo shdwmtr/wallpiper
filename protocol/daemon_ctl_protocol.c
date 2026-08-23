@@ -82,7 +82,7 @@ bool wp_send_daemon_command(const char *const *args, size_t arg_count,
 
   if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
     snprintf(err_out, err_out_len,
-             "wallpiper-daemon is not running (no socket at %s)", path);
+             "wallpiperd is not running (no socket at %s)", path);
     close(sock);
     return false;
   }
@@ -129,7 +129,7 @@ bool wp_send_daemon_command(const char *const *args, size_t arg_count,
   close(sock);
 
   if (total == 0) {
-    snprintf(err_out, err_out_len, "no response from wallpiper-daemon");
+    snprintf(err_out, err_out_len, "no response from wallpiperd");
     return false;
   }
 
@@ -137,8 +137,8 @@ bool wp_send_daemon_command(const char *const *args, size_t arg_count,
   char parsed_err[256];
   if (!wp_daemon_ctl_parse_response(line, &ok, parsed_err,
                                     sizeof(parsed_err))) {
-    snprintf(err_out, err_out_len,
-             "malformed response from wallpiper-daemon: %s", line);
+    snprintf(err_out, err_out_len, "malformed response from wallpiperd: %s",
+             line);
     return false;
   }
   if (!ok) {
