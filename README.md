@@ -4,6 +4,19 @@ An ~100kb native translation layer for Wallpaper Engine on GNU/Linux based compo
 
 If you find this utility/tool useful, please consider giving it a star ⭐
 
+### Usage
+
+> [!NOTE]
+> Wallpiper is NOT installed to `PATH` automatically. All binaries live at `./target/release` relative to the repository root. 
+
+```sh
+# check config
+$ wallpiperctl check-config
+
+# run wallpiperd (manages proton and wallpaper engine. YOU DO NOTHING)
+$ WALLPIPER_PORTAL=portal WALLPIPER_*... wallpiperd
+```
+
 ## Dependencies
 
 * make
@@ -211,14 +224,6 @@ $ make build-i3
 
 ## Environment Variables 
 `wallpiperd` has no persistent configuration, all variability is mutable through environment variables. 
-
-```sh
-# Check what it resolved before launching for real
-$ ./target/release/wallpiperctl check-config
-
-# Example on hyprland
-$ WALLPIPER_PORTAL=hyprland ./target/release/wallpiperd
-```
 
 #### `WALLPIPER_PORTAL` (required)
   Which portal to use: `hyprland`, `sway`, `cosmic`, `i3`, `gnome`, `kde`
