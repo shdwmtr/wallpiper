@@ -1,4 +1,5 @@
 KDE_BUILD_DIR := target/kde
+XDG_DATA_HOME ?= $(HOME)/.local/share
 
 .PHONY: help build build-core build-protocol build-daemon build-ctl build-vklayer \
         build-interpose build-dwmapi-shim build-wl-common build-hyprland build-i3 \
@@ -54,8 +55,8 @@ configure-kde:
 install-gnome: build-gnome
 	sudo $(MAKE) -C portals/wallpiper-portal-gnome/native install
 	sudo ldconfig
-	mkdir -p "$(HOME)/.local/share/gnome-shell/extensions/wallpiper-gnome@wallpiper.dev"
-	cp -r portals/wallpiper-portal-gnome/extension/. "$(HOME)/.local/share/gnome-shell/extensions/wallpiper-gnome@wallpiper.dev/"
+	mkdir -p "$(XDG_DATA_HOME)/gnome-shell/extensions/wallpiper-gnome@wallpiper.dev"
+	cp -r portals/wallpiper-portal-gnome/extension/. "$(XDG_DATA_HOME)/gnome-shell/extensions/wallpiper-gnome@wallpiper.dev/"
 	gnome-extensions enable wallpiper-gnome@wallpiper.dev
 
 install-kde:
