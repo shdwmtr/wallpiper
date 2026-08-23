@@ -22,7 +22,8 @@
 #
 
 CC ?= cc
-CFLAGS ?= -std=gnu99 -Os -Wall -Wextra -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables
+CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
+CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables
 
 TARGET_DIR := ../../target/release
 OBJ_DIR := ../../target/objects

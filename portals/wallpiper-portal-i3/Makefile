@@ -24,7 +24,8 @@
 CC ?= cc
 XCB_CFLAGS := $(shell pkg-config --cflags xcb xcb-dri3 xcb-shm)
 XCB_LIBS := $(shell pkg-config --libs xcb xcb-dri3 xcb-shm)
-CFLAGS ?= -std=gnu99 -Os -Wall -Wextra -fPIC -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../protocol/include -I../../vendor/cjson $(XCB_CFLAGS)
+CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
+CFLAGS += -fPIC -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../protocol/include -I../../vendor/cjson $(XCB_CFLAGS)
 
 TARGET_DIR := ../../target/release
 OBJ_DIR := ../../target/objects/wallpiper-portal-i3

@@ -23,7 +23,8 @@
 
 CC ?= cc
 VULKAN_CFLAGS := $(shell pkg-config --cflags vulkan)
-CFLAGS ?= -std=gnu99 -Os -Wall -Wextra -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../protocol/include -I../../vendor/vulkan $(VULKAN_CFLAGS)
+CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
+CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../protocol/include -I../../vendor/vulkan $(VULKAN_CFLAGS)
 
 TARGET_DIR := ../../target/release
 OBJ_DIR := ../../target/objects/siphon

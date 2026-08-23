@@ -24,7 +24,8 @@
 CC ?= cc
 DBUS_CFLAGS := $(shell pkg-config --cflags dbus-1)
 DBUS_LIBS := $(shell pkg-config --libs dbus-1)
-CFLAGS ?= -std=gnu99 -Os -Wall -Wextra -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../protocol/include -I../../vendor/cjson $(DBUS_CFLAGS)
+CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
+CFLAGS += -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../protocol/include -I../../vendor/cjson $(DBUS_CFLAGS)
 
 TARGET_DIR := ../../target/release
 OBJ_DIR := ../../target/objects/wallpiperd

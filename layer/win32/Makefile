@@ -24,7 +24,7 @@
 TCC_ROOT := ../../vendor/tcc
 TCC_BIN := $(TCC_ROOT)/x86_64-win32-tcc
 LIBSNARE_DIR := ../../vendor/libsnare
-CFLAGS ?= -std=gnu11 -Wall -Wextra -shared -nostdlib -ffreestanding -fno-builtin -isystem $(TCC_ROOT)/include -I . -I win32 -I $(LIBSNARE_DIR)
+override CFLAGS := -std=gnu11 -Wall -Wextra -shared -nostdlib -ffreestanding -fno-builtin -isystem $(TCC_ROOT)/include -I . -I win32 -I $(LIBSNARE_DIR)
 
 TARGET_DIR := ../../target/release
 DLL := $(TARGET_DIR)/dwmapi.dll

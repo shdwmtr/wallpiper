@@ -22,7 +22,8 @@
 #
 
 CC ?= cc
-CFLAGS ?= -std=gnu99 -Os -Wall -Wextra -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../protocol/include -I../../vendor/cjson
+CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
+CFLAGS += -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../protocol/include -I../../vendor/cjson
 
 TARGET_DIR := ../../target/release
 OBJ_DIR := ../../target/objects/wallpiperctl

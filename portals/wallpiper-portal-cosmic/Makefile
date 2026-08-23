@@ -24,7 +24,8 @@
 CC ?= cc
 WAYLAND_CFLAGS := $(shell pkg-config --cflags wayland-client)
 WAYLAND_LIBS := $(shell pkg-config --libs wayland-client)
-CFLAGS ?= -std=gnu99 -Os -Wall -Wextra -fPIC -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../protocol/include -I../wallpiper-portal-wl-common/include -I../../target/objects/wallpiper-portal-wl-common/generated $(WAYLAND_CFLAGS)
+CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
+CFLAGS += -fPIC -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../protocol/include -I../wallpiper-portal-wl-common/include -I../../target/objects/wallpiper-portal-wl-common/generated $(WAYLAND_CFLAGS)
 
 TARGET_DIR := ../../target/release
 OBJ_DIR := ../../target/objects/wallpiper-portal-cosmic

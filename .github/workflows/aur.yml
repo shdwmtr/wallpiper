@@ -1,0 +1,123 @@
+name: AUR Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish to AUR?"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - "packages/arch/**"
+      - "**/Makefile"
+      - "**/CMakeLists.txt"
+      - ".github/workflows/aur.yml"
+  pull_request:
+    paths:
+      - "packages/arch/**"
+      - "**/Makefile"
+      - "**/CMakeLists.txt"
+      - ".github/workflows/aur.yml"
+
+concurrency:
+  group: aur-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-pkgbuild:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+
+    steps:
+      - name: Setup pacman
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm git
+
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build packages
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          cp -r packages/arch /home/builder/pkg
+
+          sed -i "s#git+\$url.git#git+file://$GITHUB_WORKSPACE#" /home/builder/pkg/PKGBUILD
+          chown -R builder:builder /home/builder/pkg
+          su builder -c 'cd /home/builder/pkg && makepkg -s --noconfirm'
+
+      - name: Verify packages
+        run: |
+          echo "=== Built packages ==="
+          ls -lh /home/builder/pkg/*.pkg.tar.zst
+
+          mkdir -p /tmp/verify
+          extract() {
+            local pkgfile
+            pkgfile=$(ls /home/builder/pkg/$1-*.pkg.tar.zst)
+            mkdir -p "/tmp/verify/$1"
+            tar -xf "$pkgfile" -C "/tmp/verify/$1"
+          }
+          extract wallpiper-git
+          extract wallpiper-gnome-git
+          extract wallpiper-kde-git
+
+          MISSING=0
+          check() {
+            local pkg="$1" path="$2"
+            if [ -e "/tmp/verify/$pkg/$path" ] || [ -L "/tmp/verify/$pkg/$path" ]; then
+              echo "  FOUND:   $pkg/$path"
+            else
+              echo "  MISSING: $pkg/$path"
+              MISSING=1
+            fi
+          }
+
+          check wallpiper-git usr/lib/wallpiper/wallpiperd
+          check wallpiper-git usr/lib/wallpiper/wallpiperctl
+          check wallpiper-git usr/lib/wallpiper/libwallpiper-preload.so
+          check wallpiper-git usr/lib/wallpiper/libVkLayer_wallpiper_capture.so
+          check wallpiper-git usr/lib/wallpiper/dwmapi.dll
+          check wallpiper-git usr/bin/wallpiperd
+          check wallpiper-git usr/bin/wallpiperctl
+          for portal in hyprland i3 sway cosmic; do
+            check wallpiper-git "usr/lib/wallpiper/wallpiper-portal-$portal"
+          done
+
+          check wallpiper-gnome-git usr/lib/libwallpiper-1.0.so
+          check wallpiper-gnome-git usr/lib/girepository-1.0/Wallpiper-1.0.typelib
+          check wallpiper-gnome-git "usr/share/gnome-shell/extensions/wallpiper-gnome@wallpiper.dev/metadata.json"
+
+          check wallpiper-kde-git usr/lib/qt6/qml/dev/wallpiper/capture/libwallpiper_capture_plugin.so
+          check wallpiper-kde-git usr/share/plasma/wallpapers/dev.wallpiper.kde/metadata.json
+
+          [ "$MISSING" -eq 0 ] || { echo "ERROR: one or more required files missing from package"; exit 1; }
+
+  publish-aur:
+    needs: test-pkgbuild
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == true }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Publish AUR package
+        uses: KSXGitHub/github-actions-deploy-aur@master
+        with:
+          pkgname: wallpiper-git
+          pkgbuild: ./packages/arch/PKGBUILD
+          assets: |
+            ./packages/arch/wallpiper-gnome-git.install
+            ./packages/arch/wallpiper-kde-git.install
+          commit_username: GitHub Actions
+          commit_email: github-actions@github.com
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: Update AUR package
+          ssh_keyscan_types: rsa,ecdsa,ed25519
