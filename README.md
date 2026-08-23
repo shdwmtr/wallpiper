@@ -4,9 +4,8 @@ An ~100kb native translation layer for Wallpaper Engine on GNU/Linux based compo
 
 If you find this utility/tool useful, please consider giving it a star ⭐
 
-### Usage
+## Usage
 
-> [!NOTE]
 > Wallpiper is NOT installed to `PATH` automatically. All binaries live at `./target/release` relative to the repository root. 
 
 ```sh
