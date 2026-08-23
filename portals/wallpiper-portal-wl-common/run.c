@@ -8,8 +8,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#define WP_WL_KEYBOARD_INTERACTIVITY_NONE 0
-
 void wp_wl_geometry_from_scale(int32_t x, int32_t y, uint32_t width,
                                uint32_t height, double scale,
                                wp_monitor_geometry_t *out) {
@@ -88,8 +86,6 @@ void wp_wl_portal_run(const wp_wl_portal_config_t *config) {
   wp_wl_state_t state;
   memset(&state, 0, sizeof(state));
   state.config = config;
-  state.width = 1920;
-  state.height = 1080;
   state.debug_shm_fd = -1;
   state.stats = wp_frame_stats_create();
   wp_debug_throttle_init(&state.debug_throttle);
@@ -109,29 +105,9 @@ void wp_wl_portal_run(const wp_wl_portal_config_t *config) {
 
   wp_wl_bind_globals(&state);
 
-  state.surface = wl_compositor_create_surface(state.compositor);
-  wp_wl_attach_surface_listener(&state);
-  if (state.viewporter) {
-    state.viewport =
-        wp_viewporter_get_viewport(state.viewporter, state.surface);
-  }
-
-  state.layer_surface = zwlr_layer_shell_v1_get_layer_surface(
-      state.layer_shell, state.surface, NULL,
-      ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND, config->layer_namespace);
-  wp_wl_attach_layer_surface_listener(&state);
-  zwlr_layer_surface_v1_set_anchor(state.layer_surface,
-                                   ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
-                                       ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
-                                       ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
-                                       ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
-  zwlr_layer_surface_v1_set_exclusive_zone(state.layer_surface, -1);
-  zwlr_layer_surface_v1_set_keyboard_interactivity(
-      state.layer_surface, WP_WL_KEYBOARD_INTERACTIVITY_NONE);
-  zwlr_layer_surface_v1_set_size(state.layer_surface, 0, 0);
-  wl_surface_commit(state.surface);
-
-  printf("layer surface created, waiting for configure + frame\n");
+  printf("bound %zu output(s); layer surfaces are created per-output as each "
+         "one's geometry becomes known\n",
+         state.output_count);
 
   state.capture_fd = wp_bind_capture_socket();
   state.ctl_listener = wp_ctl_listener_start(

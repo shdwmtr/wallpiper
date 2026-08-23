@@ -20,16 +20,31 @@ static void on_monitors_changed(MetaMonitorManager *manager,
       wallpiper_monitor_detect_primary(state->backend);
   state->geometry = geometry;
 
-  if (state->display_actor) {
-    clutter_actor_set_position(state->display_actor, geometry.x, geometry.y);
-    clutter_actor_set_size(state->display_actor, geometry.width,
-                           geometry.height);
-  }
-
   g_message("wallpiper-gnome: monitor geometry changed %ux%u at (%d,%d), "
             "logical %ux%u, scale %g",
             geometry.width, geometry.height, geometry.x, geometry.y,
             geometry.logical_width, geometry.logical_height, geometry.scale);
+
+  WallpiperMonitorGeometry monitors[WP_MAX_CAPTURE_CHANNELS];
+  guint count = 0;
+  wallpiper_monitor_detect_all(state->backend, monitors,
+                               WP_MAX_CAPTURE_CHANNELS, &count);
+
+  for (int i = 0; i < WP_MAX_CAPTURE_CHANNELS; i++) {
+    WallpiperCaptureChannel *ch = &state->channels[i];
+    if (!ch->active)
+      continue;
+    for (guint j = 0; j < count; j++) {
+      if (monitors[j].x == ch->monitor.x && monitors[j].y == ch->monitor.y) {
+        ch->monitor = monitors[j];
+        clutter_actor_set_position(ch->display_actor, monitors[j].x,
+                                   monitors[j].y);
+        clutter_actor_set_size(ch->display_actor, monitors[j].logical_width,
+                               monitors[j].logical_height);
+        break;
+      }
+    }
+  }
 }
 
 gboolean wallpiper_portal_start(GObject *backend_obj, GObject *parent_obj,
@@ -75,25 +90,7 @@ gboolean wallpiper_portal_start(GObject *backend_obj, GObject *parent_obj,
   state->geometry = geometry;
 
   ClutterActor *parent = CLUTTER_ACTOR(parent_obj);
-  ClutterActor *actor = clutter_actor_new();
-  clutter_actor_set_position(actor, geometry.x, geometry.y);
-  clutter_actor_set_size(actor, geometry.width, geometry.height);
-  clutter_actor_show(actor);
-
-  ClutterActor *background_actor =
-      wallpiper_actor_stacking_dump_children(parent, "enable");
-  if (background_actor)
-    clutter_actor_insert_child_above(parent, actor, background_actor);
-  else {
-    ClutterActor *current_bottom = clutter_actor_get_first_child(parent);
-    if (current_bottom)
-      clutter_actor_insert_child_above(parent, actor, current_bottom);
-    else
-      clutter_actor_add_child(parent, actor);
-  }
-
   state->parent = parent;
-  state->display_actor = actor;
 
   MetaMonitorManager *monitor_manager =
       meta_backend_get_monitor_manager(backend);
@@ -110,7 +107,6 @@ gboolean wallpiper_portal_start(GObject *backend_obj, GObject *parent_obj,
 
   if (!wallpiper_capture_listener_start(state, error)) {
     wallpiper_actor_stacking_disconnect(state);
-    clutter_actor_destroy(state->display_actor);
     g_free(state);
     return FALSE;
   }
@@ -118,7 +114,6 @@ gboolean wallpiper_portal_start(GObject *backend_obj, GObject *parent_obj,
   if (!wallpiper_ctl_listener_start(state, error)) {
     wallpiper_capture_listener_stop(state);
     wallpiper_actor_stacking_disconnect(state);
-    clutter_actor_destroy(state->display_actor);
     g_free(state);
     return FALSE;
   }
@@ -145,9 +140,6 @@ void wallpiper_portal_stop(void) {
   wallpiper_ctl_listener_stop(portal_state);
   wallpiper_capture_listener_stop(portal_state);
   wallpiper_actor_stacking_disconnect(portal_state);
-
-  if (portal_state->display_actor)
-    clutter_actor_destroy(portal_state->display_actor);
 
   g_free(portal_state);
   portal_state = NULL;

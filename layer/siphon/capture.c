@@ -417,6 +417,31 @@ static wp_swapchain_state_t *find_swapchain_locked(wp_device_data_t *dd,
   return NULL;
 }
 
+static pthread_mutex_t g_channel_mutex = PTHREAD_MUTEX_INITIALIZER;
+static bool g_channel_in_use[WP_MAX_CAPTURE_CHANNELS];
+
+static bool alloc_wire_channel(uint32_t *out) {
+  pthread_mutex_lock(&g_channel_mutex);
+  for (uint32_t i = 0; i < WP_MAX_CAPTURE_CHANNELS; i++) {
+    if (!g_channel_in_use[i]) {
+      g_channel_in_use[i] = true;
+      *out = i;
+      pthread_mutex_unlock(&g_channel_mutex);
+      return true;
+    }
+  }
+  pthread_mutex_unlock(&g_channel_mutex);
+  return false;
+}
+
+static void free_wire_channel(uint32_t channel) {
+  if (channel < WP_MAX_CAPTURE_CHANNELS) {
+    pthread_mutex_lock(&g_channel_mutex);
+    g_channel_in_use[channel] = false;
+    pthread_mutex_unlock(&g_channel_mutex);
+  }
+}
+
 void wp_register_swapchain(wp_device_data_t *dd, VkSwapchainKHR swapchain,
                            const VkSwapchainCreateInfoKHR *create_info) {
   VkImage images[16];
@@ -448,6 +473,15 @@ void wp_register_swapchain(wp_device_data_t *dd, VkSwapchainKHR swapchain,
     return;
   }
 
+  uint32_t wire_channel;
+  if (!alloc_wire_channel(&wire_channel)) {
+    pthread_mutex_unlock(&dd->swapchains_mutex);
+    WP_LOG("register_swapchain: no free wire channel (max %d), capture "
+           "disabled for this swapchain",
+           WP_MAX_CAPTURE_CHANNELS);
+    return;
+  }
+
   memset(slot, 0, sizeof(*slot));
   slot->in_use = true;
   slot->swapchain = swapchain;
@@ -461,7 +495,11 @@ void wp_register_swapchain(wp_device_data_t *dd, VkSwapchainKHR swapchain,
   slot->next_slot = 0;
   slot->present_count = 0;
   slot->has_last_present_at = false;
+  slot->wire_channel = wire_channel;
   pthread_mutex_unlock(&dd->swapchains_mutex);
+
+  WP_LOG("register_swapchain: swapchain=%llu assigned wire_channel=%u",
+         (unsigned long long)swapchain, wire_channel);
 }
 
 void wp_teardown_swapchain(wp_device_data_t *dd, VkSwapchainKHR swapchain) {
@@ -475,6 +513,7 @@ void wp_teardown_swapchain(wp_device_data_t *dd, VkSwapchainKHR swapchain) {
   wp_capture_slot_t slots_copy[WP_CAPTURE_SLOT_COUNT];
   memcpy(slots_copy, state->slots, sizeof(slots_copy));
   state->in_use = false;
+  free_wire_channel(state->wire_channel);
   pthread_mutex_unlock(&dd->swapchains_mutex);
 
   WP_LOG("destroy_swapchain_khr: tearing down capture slot(s) for %llu",
@@ -605,6 +644,8 @@ void wp_capture_and_notify(wp_device_data_t *dd, VkQueue queue,
   VkSemaphore ready_semaphore = slot->ready_semaphore;
   VkFormat format = state->format;
   VkExtent2D extent = state->extent;
+  uint32_t wire_slot =
+      state->wire_channel * WP_CAPTURE_SLOT_COUNT + (uint32_t)slot_idx;
 
   pthread_mutex_unlock(&dd->swapchains_mutex);
 
@@ -637,7 +678,7 @@ void wp_capture_and_notify(wp_device_data_t *dd, VkQueue queue,
       return;
     }
     bool sent = wp_capture_link_send_buf(
-        dd->capture_link, (uint32_t)slot_idx, extent.width, extent.height,
+        dd->capture_link, wire_slot, extent.width, extent.height,
         (uint32_t)format, stride, modifier, fd, sync_fd);
     if (sent) {
       pthread_mutex_lock(&dd->swapchains_mutex);
@@ -648,6 +689,6 @@ void wp_capture_and_notify(wp_device_data_t *dd, VkQueue queue,
       pthread_mutex_unlock(&dd->swapchains_mutex);
     }
   } else {
-    wp_capture_link_send_frame(dd->capture_link, (uint32_t)slot_idx, sync_fd);
+    wp_capture_link_send_frame(dd->capture_link, wire_slot, sync_fd);
   }
 }

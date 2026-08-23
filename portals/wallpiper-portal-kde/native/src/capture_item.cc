@@ -26,19 +26,12 @@ constexpr qint64 kStatsWindowMs = 3000;
 
 qint64 nowMs() { return QDateTime::currentMSecsSinceEpoch(); }
 
-bool ensureBlitProgram(QOpenGLExtraFunctions *gl, GLuint &program,
-                       GLint &texLoc, GLuint &vao) {
-  static GLuint sProgram = 0;
-  static GLint sTexLoc = 0;
-  static GLuint sVao = 0;
-  static GLuint sVbo = 0;
-  static bool sReady = false;
-  static bool sFailed = false;
-
-  if (sFailed) {
+bool ensureBlitProgram(QOpenGLExtraFunctions *gl, BlitProgramState &state,
+                       GLuint &program, GLint &texLoc, GLuint &vao) {
+  if (state.failed) {
     return false;
   }
-  if (!sReady) {
+  if (!state.ready) {
     const char *vsSrc = "attribute vec2 pos;\n"
                         "varying vec2 uv;\n"
                         "void main() {\n"
@@ -67,55 +60,56 @@ bool ensureBlitProgram(QOpenGLExtraFunctions *gl, GLuint &program,
       char log[512];
       gl->glGetShaderInfoLog(fsOk ? vs : fs, sizeof(log), nullptr, log);
       qWarning() << "[capture] blit shader compile failed:" << log;
-      sFailed = true;
+      state.failed = true;
       return false;
     }
 
-    sProgram = gl->glCreateProgram();
-    gl->glAttachShader(sProgram, vs);
-    gl->glAttachShader(sProgram, fs);
-    gl->glBindAttribLocation(sProgram, 0, "pos");
-    gl->glLinkProgram(sProgram);
+    state.program = gl->glCreateProgram();
+    gl->glAttachShader(state.program, vs);
+    gl->glAttachShader(state.program, fs);
+    gl->glBindAttribLocation(state.program, 0, "pos");
+    gl->glLinkProgram(state.program);
     GLint linkOk = 0;
-    gl->glGetProgramiv(sProgram, GL_LINK_STATUS, &linkOk);
+    gl->glGetProgramiv(state.program, GL_LINK_STATUS, &linkOk);
     if (!linkOk) {
       char log[512];
-      gl->glGetProgramInfoLog(sProgram, sizeof(log), nullptr, log);
+      gl->glGetProgramInfoLog(state.program, sizeof(log), nullptr, log);
       qWarning() << "[capture] blit shader link failed:" << log;
-      sFailed = true;
+      state.failed = true;
       return false;
     }
-    sTexLoc = gl->glGetUniformLocation(sProgram, "tex");
+    state.texLoc = gl->glGetUniformLocation(state.program, "tex");
     gl->glDeleteShader(vs);
     gl->glDeleteShader(fs);
 
-    gl->glGenVertexArrays(1, &sVao);
-    gl->glBindVertexArray(sVao);
+    gl->glGenVertexArrays(1, &state.vao);
+    gl->glBindVertexArray(state.vao);
     const float quad[8] = {-1, -1, 1, -1, -1, 1, 1, 1};
-    gl->glGenBuffers(1, &sVbo);
-    gl->glBindBuffer(GL_ARRAY_BUFFER, sVbo);
+    gl->glGenBuffers(1, &state.vbo);
+    gl->glBindBuffer(GL_ARRAY_BUFFER, state.vbo);
     gl->glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
     gl->glEnableVertexAttribArray(0);
     gl->glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
     gl->glBindBuffer(GL_ARRAY_BUFFER, 0);
     gl->glBindVertexArray(0);
 
-    sReady = true;
+    state.ready = true;
   }
 
-  program = sProgram;
-  texLoc = sTexLoc;
-  vao = sVao;
+  program = state.program;
+  texLoc = state.texLoc;
+  vao = state.vao;
   return true;
 }
 
 bool blitExternalOesToTexture2D(QOpenGLExtraFunctions *gl,
+                                BlitProgramState &blitState,
                                 unsigned int oesTexture, unsigned int dstFbo,
                                 int width, int height) {
   GLuint program = 0;
   GLint texLoc = 0;
   GLuint vao = 0;
-  if (!ensureBlitProgram(gl, program, texLoc, vao)) {
+  if (!ensureBlitProgram(gl, blitState, program, texLoc, vao)) {
     return false;
   }
 
@@ -162,6 +156,18 @@ WallpaperCaptureItem::~WallpaperCaptureItem() {
   CaptureCoordinator::instance()->unregisterItem(this);
   replacePendingSource(std::nullopt);
   destroyAllSlots();
+  if (auto *ctx = QOpenGLContext::currentContext()) {
+    auto *gl = ctx->extraFunctions();
+    if (m_blitProgram.vao) {
+      gl->glDeleteVertexArrays(1, &m_blitProgram.vao);
+    }
+    if (m_blitProgram.vbo) {
+      gl->glDeleteBuffers(1, &m_blitProgram.vbo);
+    }
+    if (m_blitProgram.program) {
+      gl->glDeleteProgram(m_blitProgram.program);
+    }
+  }
 }
 
 void WallpaperCaptureItem::componentComplete() {
@@ -447,8 +453,8 @@ QSGNode *WallpaperCaptureItem::updatePaintNode(QSGNode *oldNode,
                                  GL_TEXTURE_2D, tex.blitTexture, 0);
       gl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-      blitExternalOesToTexture2D(gl, tex.import.texture, tex.blitFbo,
-                                 static_cast<int>(pending.width),
+      blitExternalOesToTexture2D(gl, m_blitProgram, tex.import.texture,
+                                 tex.blitFbo, static_cast<int>(pending.width),
                                  static_cast<int>(pending.height));
 
       tex.sgTexture.reset(
@@ -508,7 +514,8 @@ QSGNode *WallpaperCaptureItem::updatePaintNode(QSGNode *oldNode,
         m_importer.refreshBinding(it->second.import);
         if (auto *ctx = QOpenGLContext::currentContext()) {
           auto *gl = ctx->extraFunctions();
-          blitExternalOesToTexture2D(gl, it->second.import.texture,
+          blitExternalOesToTexture2D(gl, m_blitProgram,
+                                     it->second.import.texture,
                                      it->second.blitFbo,
                                      static_cast<int>(it->second.width),
                                      static_cast<int>(it->second.height));

@@ -26,24 +26,12 @@ static bool fmt_ok(char *out, size_t out_len, const char *fmt, ...) {
   return n > 0 && (size_t)n < out_len;
 }
 
-bool wp_dpi_marker_path(const char *location, char *out, size_t out_len) {
-  char runtime_dir[512];
-  char slug[256];
-  if (!wp_runtime_dir(runtime_dir, sizeof(runtime_dir)) ||
-      !wp_location_slug(location, slug, sizeof(slug))) {
-    return false;
-  }
-  return fmt_ok(out, out_len, "%s/wallpiper-dpi-%s", runtime_dir, slug);
-}
-
-bool wp_renderer_pid_path(const char *location, char *out, size_t out_len) {
+bool wp_renderer_pid_path(char *out, size_t out_len) {
   char temp_dir[512];
-  char slug[256];
-  if (!wp_temp_dir(temp_dir, sizeof(temp_dir)) ||
-      !wp_location_slug(location, slug, sizeof(slug))) {
+  if (!wp_temp_dir(temp_dir, sizeof(temp_dir))) {
     return false;
   }
-  return fmt_ok(out, out_len, "%s/wallpiper-renderer-pid-%s", temp_dir, slug);
+  return fmt_ok(out, out_len, "%s/wallpiper-renderer-pid", temp_dir);
 }
 
 bool wp_tray_icon_path(char *out, size_t out_len) {
@@ -78,45 +66,18 @@ bool wp_menu_command_path(char *out, size_t out_len) {
   return fmt_ok(out, out_len, "%s/wallpiper-menu-command", temp_dir);
 }
 
-bool wp_cursor_pos_path(const char *location, char *out, size_t out_len) {
+bool wp_cursor_pos_path(char *out, size_t out_len) {
   char temp_dir[512];
-  char slug[256];
-  if (!wp_temp_dir(temp_dir, sizeof(temp_dir)) ||
-      !wp_location_slug(location, slug, sizeof(slug))) {
+  if (!wp_temp_dir(temp_dir, sizeof(temp_dir))) {
     return false;
   }
-  return fmt_ok(out, out_len, "%s/wallpiper-cursor-%s", temp_dir, slug);
+  return fmt_ok(out, out_len, "%s/wallpiper-cursor", temp_dir);
 }
 
-bool wp_selectwallpaper_request_path(const char *location, char *out,
-                                     size_t out_len) {
+bool wp_wine_fonts_dir(char *out, size_t out_len) {
   char compatdata[768];
   char err[256];
-  if (!wp_compatdata_for(location, compatdata, sizeof(compatdata), err,
-                         sizeof(err))) {
-    return false;
-  }
-  return fmt_ok(out, out_len, "%s/.wallpiper-selectwallpaper-request",
-                compatdata);
-}
-
-bool wp_selectwallpaper_reply_path(const char *location, char *out,
-                                   size_t out_len) {
-  char compatdata[768];
-  char err[256];
-  if (!wp_compatdata_for(location, compatdata, sizeof(compatdata), err,
-                         sizeof(err))) {
-    return false;
-  }
-  return fmt_ok(out, out_len, "%s/.wallpiper-selectwallpaper-reply",
-                compatdata);
-}
-
-bool wp_wine_fonts_dir(const char *location, char *out, size_t out_len) {
-  char compatdata[768];
-  char err[256];
-  if (!wp_compatdata_for(location, compatdata, sizeof(compatdata), err,
-                         sizeof(err))) {
+  if (!wp_compatdata_dir(compatdata, sizeof(compatdata), err, sizeof(err))) {
     return false;
   }
   return fmt_ok(out, out_len, "%s/pfx/drive_c/windows/Fonts", compatdata);

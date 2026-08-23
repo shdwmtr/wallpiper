@@ -1,6 +1,8 @@
 #include "capture_listener.h"
+#include "actor_stacking.h"
 #include "egl_import.h"
 #include "error.h"
+#include "monitor_geometry.h"
 
 #include <errno.h>
 #include <glib-unix.h>
@@ -9,25 +11,97 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-void wallpiper_capture_listener_detach(WallpiperPortalState *state) {
-  for (int i = 0; i < MAX_CAPTURE_SLOTS; i++) {
-    WallpiperCaptureSlot *slot = &state->slots[i];
+static void channel_clear(WallpiperCaptureChannel *ch) {
+  for (int i = 0; i < WP_CAPTURE_SLOT_COUNT; i++) {
+    WallpiperCaptureSlot *slot = &ch->slots[i];
     if (slot->texture) {
       g_object_unref(slot->texture);
       slot->texture = NULL;
     }
     slot->used = FALSE;
   }
-  clutter_actor_set_content(state->display_actor, NULL);
-  g_message("wallpiper-gnome: detached, cleared all slots");
+  if (ch->display_actor) {
+    clutter_actor_destroy(ch->display_actor);
+    ch->display_actor = NULL;
+  }
+  ch->active = FALSE;
 }
 
-static void display_slot(WallpiperPortalState *state,
+void wallpiper_capture_listener_detach(WallpiperPortalState *state) {
+  for (int i = 0; i < WP_MAX_CAPTURE_CHANNELS; i++) {
+    channel_clear(&state->channels[i]);
+  }
+  g_message("wallpiper-gnome: detached, cleared all channels");
+}
+
+static gboolean find_monitor_for_size(WallpiperPortalState *state,
+                                      guint32 width, guint32 height,
+                                      WallpiperMonitorGeometry *out) {
+  char x11_name[64];
+  if (!wallpiper_x11_output_for_size(width, height, x11_name,
+                                     sizeof(x11_name))) {
+    g_warning("wallpiper-gnome: XRandR has no output currently sized %ux%u",
+              width, height);
+    return FALSE;
+  }
+
+  WallpiperMonitorGeometry monitors[WP_MAX_CAPTURE_CHANNELS];
+  char names[WP_MAX_CAPTURE_CHANNELS][64];
+  guint count = 0;
+  wallpiper_monitor_detect_all_named(state->backend, monitors, &names[0][0],
+                                     sizeof(names[0]), WP_MAX_CAPTURE_CHANNELS,
+                                     &count);
+
+  for (guint j = 0; j < count; j++) {
+    if (g_strcmp0(names[j], x11_name) != 0) {
+      continue;
+    }
+    for (int i = 0; i < WP_MAX_CAPTURE_CHANNELS; i++) {
+      if (state->channels[i].active &&
+          state->channels[i].monitor.x == monitors[j].x &&
+          state->channels[i].monitor.y == monitors[j].y) {
+        g_warning("wallpiper-gnome: XRandR output %s (Mutter monitor at "
+                  "%d,%d) already claimed by another channel",
+                  x11_name, monitors[j].x, monitors[j].y);
+        return FALSE;
+      }
+    }
+    *out = monitors[j];
+    return TRUE;
+  }
+
+  g_warning("wallpiper-gnome: XRandR output %s (matched %ux%u) not found "
+            "among Mutter's monitors",
+            x11_name, width, height);
+  return FALSE;
+}
+
+static ClutterActor *create_channel_actor(WallpiperPortalState *state,
+                                          const WallpiperMonitorGeometry *m) {
+  ClutterActor *actor = clutter_actor_new();
+  clutter_actor_set_position(actor, m->x, m->y);
+  clutter_actor_set_size(actor, m->logical_width, m->logical_height);
+  clutter_actor_show(actor);
+
+  ClutterActor *background_actor =
+      wallpiper_actor_stacking_dump_children(state->parent, "new-channel");
+  if (background_actor) {
+    clutter_actor_insert_child_above(state->parent, actor, background_actor);
+  } else {
+    ClutterActor *current_bottom = clutter_actor_get_first_child(state->parent);
+    if (current_bottom)
+      clutter_actor_insert_child_above(state->parent, actor, current_bottom);
+    else
+      clutter_actor_add_child(state->parent, actor);
+  }
+  return actor;
+}
+
+static void display_slot(WallpiperCaptureChannel *ch,
                          WallpiperCaptureSlot *slot) {
   ClutterContent *content =
       clutter_texture_content_new_from_texture(slot->texture, NULL);
-  clutter_actor_set_size(state->display_actor, slot->width, slot->height);
-  clutter_actor_set_content(state->display_actor, content);
+  clutter_actor_set_content(ch->display_actor, content);
 }
 
 static gboolean recv_capture_message(int sock_fd, char *header_buf,
@@ -77,7 +151,7 @@ static void handle_buf_message(WallpiperPortalState *state, char **parts,
     return;
   }
 
-  guint32 slot_index = (guint32)g_ascii_strtoull(parts[1], NULL, 10);
+  guint32 wire_slot = (guint32)g_ascii_strtoull(parts[1], NULL, 10);
   guint32 width = (guint32)g_ascii_strtoull(parts[2], NULL, 10);
   guint32 height = (guint32)g_ascii_strtoull(parts[3], NULL, 10);
   guint32 stride = (guint32)g_ascii_strtoull(parts[5], NULL, 10);
@@ -87,18 +161,40 @@ static void handle_buf_message(WallpiperPortalState *state, char **parts,
   int sync_fd = n_fds > 1 ? fds[1] : -1;
   wallpiper_egl_wait_sync_fd(state->egl_display, sync_fd);
 
-  if (dmabuf_fd < 0 || slot_index >= MAX_CAPTURE_SLOTS) {
-    g_warning("wallpiper-gnome: bad BUF message (slot=%u fd=%d)", slot_index,
+  if (dmabuf_fd < 0 || wire_slot >= MAX_CAPTURE_SLOTS) {
+    g_warning("wallpiper-gnome: bad BUF message (slot=%u fd=%d)", wire_slot,
               dmabuf_fd);
     if (dmabuf_fd >= 0)
       close(dmabuf_fd);
     return;
   }
 
-  g_message(
-      "wallpiper-gnome: BUF slot=%u %ux%u stride=%u modifier=0x%llx fd=%d",
-      slot_index, width, height, stride, (unsigned long long)modifier,
-      dmabuf_fd);
+  guint32 channel_idx = wire_slot / WP_CAPTURE_SLOT_COUNT;
+  guint32 local_idx = wire_slot % WP_CAPTURE_SLOT_COUNT;
+  WallpiperCaptureChannel *ch = &state->channels[channel_idx];
+
+  if (!ch->active) {
+    WallpiperMonitorGeometry monitor;
+    if (!find_monitor_for_size(state, width, height, &monitor)) {
+      g_warning("wallpiper-gnome: no monitor available for new channel %u "
+                "(%ux%u), dropping",
+                channel_idx, width, height);
+      close(dmabuf_fd);
+      return;
+    }
+    ch->monitor = monitor;
+    ch->display_actor = create_channel_actor(state, &monitor);
+    ch->active = TRUE;
+    g_message("wallpiper-gnome: channel %u bound to monitor at (%d,%d) %ux%u "
+              "for stream %ux%u",
+              channel_idx, monitor.x, monitor.y, monitor.width, monitor.height,
+              width, height);
+  }
+
+  g_message("wallpiper-gnome: BUF channel=%u local=%u %ux%u stride=%u "
+            "modifier=0x%llx fd=%d",
+            channel_idx, local_idx, width, height, stride,
+            (unsigned long long)modifier, dmabuf_fd);
 
   GError *local_error = NULL;
   CoglTexture *texture = wallpiper_egl_import_dmabuf(
@@ -107,13 +203,14 @@ static void handle_buf_message(WallpiperPortalState *state, char **parts,
   close(dmabuf_fd);
 
   if (!texture) {
-    g_warning("wallpiper-gnome: failed to import BUF slot %u: %s", slot_index,
+    g_warning("wallpiper-gnome: failed to import BUF channel=%u local=%u: %s",
+              channel_idx, local_idx,
               local_error ? local_error->message : "unknown error");
     g_clear_error(&local_error);
     return;
   }
 
-  WallpiperCaptureSlot *slot = &state->slots[slot_index];
+  WallpiperCaptureSlot *slot = &ch->slots[local_idx];
   if (slot->texture)
     g_object_unref(slot->texture);
   slot->used = TRUE;
@@ -121,9 +218,10 @@ static void handle_buf_message(WallpiperPortalState *state, char **parts,
   slot->height = height;
   slot->texture = texture;
 
-  display_slot(state, slot);
+  display_slot(ch, slot);
 
-  g_message("wallpiper-gnome: displaying slot %u", slot_index);
+  g_message("wallpiper-gnome: displaying channel=%u local=%u", channel_idx,
+            local_idx);
 }
 
 static void handle_frame_message(WallpiperPortalState *state, char **parts,
@@ -134,12 +232,19 @@ static void handle_frame_message(WallpiperPortalState *state, char **parts,
   if (n_parts < 2)
     return;
 
-  guint32 slot_index = (guint32)g_ascii_strtoull(parts[1], NULL, 10);
-  if (slot_index >= MAX_CAPTURE_SLOTS || !state->slots[slot_index].used)
+  guint32 wire_slot = (guint32)g_ascii_strtoull(parts[1], NULL, 10);
+  if (wire_slot >= MAX_CAPTURE_SLOTS)
     return;
 
-  display_slot(state, &state->slots[slot_index]);
-  g_message("wallpiper-gnome: FRAME -> displaying slot %u", slot_index);
+  guint32 channel_idx = wire_slot / WP_CAPTURE_SLOT_COUNT;
+  guint32 local_idx = wire_slot % WP_CAPTURE_SLOT_COUNT;
+  WallpiperCaptureChannel *ch = &state->channels[channel_idx];
+  if (!ch->active || !ch->slots[local_idx].used)
+    return;
+
+  display_slot(ch, &ch->slots[local_idx]);
+  g_message("wallpiper-gnome: FRAME -> displaying channel=%u local=%u",
+            channel_idx, local_idx);
 }
 
 static gboolean on_capture_socket_readable(gint fd, GIOCondition condition,
@@ -217,12 +322,7 @@ void wallpiper_capture_listener_stop(WallpiperPortalState *state) {
   close(state->capture_socket_fd);
   unlink(WALLPIPER_CAPTURE_SOCKET_PATH);
 
-  for (int i = 0; i < MAX_CAPTURE_SLOTS; i++) {
-    WallpiperCaptureSlot *slot = &state->slots[i];
-    if (slot->texture) {
-      g_object_unref(slot->texture);
-      slot->texture = NULL;
-    }
-    slot->used = FALSE;
+  for (int i = 0; i < WP_MAX_CAPTURE_CHANNELS; i++) {
+    channel_clear(&state->channels[i]);
   }
 }

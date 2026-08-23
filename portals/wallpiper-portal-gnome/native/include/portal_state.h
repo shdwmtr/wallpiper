@@ -15,15 +15,21 @@ typedef struct {
   CoglTexture *texture;
 } WallpiperCaptureSlot;
 
+typedef struct {
+  gboolean active;
+  ClutterActor *display_actor;
+  WallpiperCaptureSlot slots[WP_CAPTURE_SLOT_COUNT];
+  WallpiperMonitorGeometry monitor;
+} WallpiperCaptureChannel;
+
 typedef struct _WallpiperPortalState {
   MetaBackend *backend;
   CoglContext *cogl_context;
   EGLDisplay egl_display;
 
   ClutterActor *parent;
-  ClutterActor *display_actor;
 
-  WallpiperCaptureSlot slots[MAX_CAPTURE_SLOTS];
+  WallpiperCaptureChannel channels[WP_MAX_CAPTURE_CHANNELS];
   WallpiperMonitorGeometry geometry;
   gboolean debug_enabled;
 

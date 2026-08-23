@@ -20,7 +20,7 @@ ClutterActor *wallpiper_actor_stacking_dump_children(ClutterActor *parent,
 
 void wallpiper_actor_stacking_reassert(WallpiperPortalState *state,
                                        const char *tag) {
-  if (!state->parent || !state->display_actor)
+  if (!state->parent)
     return;
 
   ClutterActor *background_actor = NULL;
@@ -35,17 +35,22 @@ void wallpiper_actor_stacking_reassert(WallpiperPortalState *state,
   ClutterActor *reference = background_actor
                                 ? background_actor
                                 : clutter_actor_get_first_child(state->parent);
-  if (!reference || reference == state->display_actor)
+  if (!reference)
     return;
 
-  if (clutter_actor_get_previous_sibling(state->display_actor) == reference)
-    return; /* already correctly positioned */
+  for (int i = 0; i < WP_MAX_CAPTURE_CHANNELS; i++) {
+    ClutterActor *actor = state->channels[i].display_actor;
+    if (!actor || actor == reference)
+      continue;
 
-  clutter_actor_set_child_above_sibling(state->parent, state->display_actor,
-                                        reference);
-  g_message("wallpiper-gnome: [%s] reasserted display_actor position above "
-            "background",
-            tag);
+    if (clutter_actor_get_previous_sibling(actor) == reference)
+      continue; /* already correctly positioned */
+
+    clutter_actor_set_child_above_sibling(state->parent, actor, reference);
+    g_message("wallpiper-gnome: [%s] reasserted channel %d display_actor "
+              "position above background",
+              tag, i);
+  }
 }
 
 static void on_display_restacked(MetaDisplay *display, gpointer user_data) {

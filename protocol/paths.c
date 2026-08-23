@@ -62,18 +62,3 @@ bool wp_runtime_dir(char *out, size_t out_len) {
   return fmt_ok(out, out_len, "%s/.local/state/wallpiper", home);
 }
 
-bool wp_windowbrowser_socket_path(char *out, size_t out_len) {
-  char temp_dir[512];
-  if (!wp_temp_dir(temp_dir, sizeof(temp_dir))) {
-    return false;
-  }
-  return fmt_ok(out, out_len, "%s/wallpiper-windowbrowser.sock", temp_dir);
-}
-
-bool wp_inject_socket_path(char *out, size_t out_len) {
-  char temp_dir[512];
-  if (!wp_temp_dir(temp_dir, sizeof(temp_dir))) {
-    return false;
-  }
-  return fmt_ok(out, out_len, "%s/wallpiper-inject.sock", temp_dir);
-}

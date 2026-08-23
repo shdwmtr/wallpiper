@@ -48,6 +48,7 @@ typedef struct {
   uint64_t present_count;
   bool has_last_present_at;
   struct timespec last_present_at;
+  uint32_t wire_channel;
 } wp_swapchain_state_t;
 
 typedef struct {

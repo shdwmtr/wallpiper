@@ -42,15 +42,17 @@ static void ensure_fake_progman_family(void) {
       CreateWindowExW(0, L"SHELLDLL_DefView", L"", WS_CHILD, 0, 0, 0, 0,
                       g_fake_icon_workerw, NULL, hinst, NULL);
 
-  int sw = GetSystemMetrics(SM_CXSCREEN);
-  int sh = GetSystemMetrics(SM_CYSCREEN);
+  int vx = GetSystemMetrics(SM_XVIRTUALSCREEN);
+  int vy = GetSystemMetrics(SM_YVIRTUALSCREEN);
+  int sw = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+  int sh = GetSystemMetrics(SM_CYVIRTUALSCREEN);
   if (sw <= 0)
     sw = 1920;
   if (sh <= 0)
     sh = 1080;
 
-  g_fake_empty_workerw = CreateWindowExW(0, L"WorkerW", L"", WS_POPUP, 0, 0, sw,
-                                         sh, NULL, NULL, hinst, NULL);
+  g_fake_empty_workerw = CreateWindowExW(0, L"WorkerW", L"", WS_POPUP, vx, vy,
+                                         sw, sh, NULL, NULL, hinst, NULL);
 }
 
 void reassert_workerw_zorder(void) {

@@ -193,18 +193,12 @@ $ WALLPIPER_PORTAL=hyprland ./target/release/wallpiperd
 
 ```sh
 # In research, not yet implemented:
-# wallpiperctl set /path/to/wallpaper.pkg
-# wallpiperctl set --id <workshop_id>
-# wallpiperctl pause
-# wallpiperctl resume
 # wallpiperctl mute
 # wallpiperctl unmute
 # wallpiperctl volume <0-100>
 
-$ wallpiperctl debug
-$ wallpiperctl nodebug
-$ wallpiperctl list-wallpapers [-j]
-$ wallpiperctl list-properties <workshop_id> [-j]
+$ wallpiperctl debug-on
+$ wallpiperctl debug-off
 $ wallpiperctl check-config
 ```
 

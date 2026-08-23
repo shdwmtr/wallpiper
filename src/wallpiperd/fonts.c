@@ -214,12 +214,12 @@ static bool write_renamed(const char *src_path, uint32_t face_index,
   return true;
 }
 
-bool wp_fonts_env_value(const char *location, char *out, size_t out_len) {
+bool wp_fonts_env_value(char *out, size_t out_len) {
   out[0] = '\0';
 
   char fonts_dir[1024];
   char cache_dir[1024];
-  if (!wp_wine_fonts_dir(location, fonts_dir, sizeof(fonts_dir)) ||
+  if (!wp_wine_fonts_dir(fonts_dir, sizeof(fonts_dir)) ||
       !wp_font_cache_dir(cache_dir, sizeof(cache_dir))) {
     return false;
   }

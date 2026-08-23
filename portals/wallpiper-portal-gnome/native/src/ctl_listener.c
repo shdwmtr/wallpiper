@@ -51,23 +51,28 @@ static gboolean on_ctl_socket_connectable(gint fd, GIOCondition condition,
     g_message("wallpiper-gnome: debug enabled");
     wallpiper_actor_stacking_dump_children(state->parent, "debug-on");
     {
-      guint idx = 0;
-      gboolean found = FALSE;
-      for (ClutterActor *child = clutter_actor_get_first_child(state->parent);
-           child != NULL;
-           child = clutter_actor_get_next_sibling(child), idx++) {
-        if (child == state->display_actor) {
-          g_message(
-              "wallpiper-gnome: [debug-on] our display_actor is at index %u",
-              idx);
-          found = TRUE;
-          break;
+      for (int ch = 0; ch < WP_MAX_CAPTURE_CHANNELS; ch++) {
+        ClutterActor *actor = state->channels[ch].display_actor;
+        if (!actor)
+          continue;
+        guint idx = 0;
+        gboolean found = FALSE;
+        for (ClutterActor *child = clutter_actor_get_first_child(state->parent);
+             child != NULL;
+             child = clutter_actor_get_next_sibling(child), idx++) {
+          if (child == actor) {
+            g_message("wallpiper-gnome: [debug-on] channel %d display_actor "
+                      "is at index %u",
+                      ch, idx);
+            found = TRUE;
+            break;
+          }
         }
+        if (!found)
+          g_message("wallpiper-gnome: [debug-on] channel %d display_actor "
+                    "NOT FOUND among window_group children!",
+                    ch);
       }
-      if (!found)
-        g_message(
-            "wallpiper-gnome: [debug-on] our display_actor NOT FOUND among "
-            "window_group children!");
     }
     response = g_strdup("OK\n");
   } else if (g_strcmp0(line, "DEBUG_OFF") == 0) {

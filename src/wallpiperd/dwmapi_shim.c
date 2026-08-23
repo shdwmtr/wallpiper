@@ -12,11 +12,10 @@
 #include "wallpiper/fsutil.h"
 #include "wallpiper/steam_paths.h"
 
-static void remove_stale_prefix_override(const char *location) {
+static void remove_stale_prefix_override(void) {
   char compatdata[768];
   char err[256];
-  if (!wp_compatdata_for(location, compatdata, sizeof(compatdata), err,
-                         sizeof(err))) {
+  if (!wp_compatdata_dir(compatdata, sizeof(compatdata), err, sizeof(err))) {
     return;
   }
 
@@ -88,8 +87,8 @@ static bool install_shim(const char *src, const char *dst) {
   return copy_file(src, dst);
 }
 
-void wp_dwmapi_shim_wire_up(const char *location) {
-  remove_stale_prefix_override(location);
+void wp_dwmapi_shim_wire_up(void) {
+  remove_stale_prefix_override();
 
   char shim[1024];
   if (!wp_dwmapi_shim_path(shim, sizeof(shim))) {

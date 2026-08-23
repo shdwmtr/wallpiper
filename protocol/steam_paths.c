@@ -86,32 +86,14 @@ bool wp_steam_root(char *out, size_t out_len, char *err_out,
   return false;
 }
 
-bool wp_location_slug(const char *location, char *out, size_t out_len) {
-  size_t len = strlen(location);
-  if (len >= out_len) {
-    return false;
-  }
-  for (size_t i = 0; i < len; i++) {
-    unsigned char c = (unsigned char)location[i];
-    out[i] = isalnum(c) ? (char)c : '_';
-  }
-  out[len] = '\0';
-  return true;
-}
-
-bool wp_compatdata_for(const char *location, char *out, size_t out_len,
-                       char *err_out, size_t err_out_len) {
+bool wp_compatdata_dir(char *out, size_t out_len, char *err_out,
+                       size_t err_out_len) {
   char steam_root[768];
   if (!wp_steam_root(steam_root, sizeof(steam_root), err_out, err_out_len)) {
     return false;
   }
-  char slug[256];
-  if (!wp_location_slug(location, slug, sizeof(slug))) {
-    snprintf(err_out, err_out_len, "location name too long");
-    return false;
-  }
-  return fmt_ok(out, out_len, "%s/steamapps/compatdata/%s-%s", steam_root,
-                WALLPAPER_ENGINE_APP_ID, slug);
+  return fmt_ok(out, out_len, "%s/steamapps/compatdata/%s", steam_root,
+                WALLPAPER_ENGINE_APP_ID);
 }
 
 bool wp_workshop_content_dir(char *out, size_t out_len, char *err_out,
@@ -344,8 +326,8 @@ void wp_describe(void) {
   ok = wp_we_config_path(buf, sizeof(buf), err, sizeof(err));
   report("wallpaper engine config.json", ok, ok ? buf : err);
 
-  ok = wp_compatdata_for("default", buf, sizeof(buf), err, sizeof(err));
-  report("compatdata (per-location, e.g. \"default\")", ok, ok ? buf : err);
+  ok = wp_compatdata_dir(buf, sizeof(buf), err, sizeof(err));
+  report("compatdata dir", ok, ok ? buf : err);
 
   ok = wp_workshop_content_dir(buf, sizeof(buf), err, sizeof(err));
   report("workshop content dir", ok, ok ? buf : err);

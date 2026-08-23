@@ -11,11 +11,9 @@ SRCS := \
 	daemon_ctl_protocol.c \
 	debug_overlay.c \
 	fsutil.c \
-	misc_ipc.c \
 	monitor_geometry.c \
 	paths.c \
-	steam_paths.c \
-	wallpaper_catalog.c
+	steam_paths.c
 
 OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
 CJSON_OBJ := $(OBJ_DIR)/cJSON.o

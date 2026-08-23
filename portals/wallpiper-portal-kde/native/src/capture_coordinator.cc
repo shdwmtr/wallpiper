@@ -14,11 +14,52 @@
 
 #include <unistd.h>
 
+#include <X11/Xlib.h>
+#include <X11/extensions/Xrandr.h>
+
 namespace WallpiperKde {
 
 namespace {
 constexpr int kCursorSampleIntervalMs = 8;
+
+/* must match layer/siphon/config.h */
+constexpr uint32_t kCaptureSlotCount = 3;
+
+QString x11OutputForSize(quint32 width, quint32 height) {
+  static Display *dpy = XOpenDisplay(nullptr);
+  if (!dpy) {
+    return QString();
+  }
+
+  Window root = DefaultRootWindow(dpy);
+  XRRScreenResources *res = XRRGetScreenResourcesCurrent(dpy, root);
+  if (!res) {
+    return QString();
+  }
+
+  QString found;
+  for (int i = 0; i < res->noutput && found.isEmpty(); i++) {
+    XRROutputInfo *outputInfo = XRRGetOutputInfo(dpy, res, res->outputs[i]);
+    if (!outputInfo) {
+      continue;
+    }
+    if (outputInfo->connection == RR_Connected && outputInfo->crtc != None) {
+      XRRCrtcInfo *crtcInfo = XRRGetCrtcInfo(dpy, res, outputInfo->crtc);
+      if (crtcInfo) {
+        if (static_cast<quint32>(crtcInfo->width) == width &&
+            static_cast<quint32>(crtcInfo->height) == height) {
+          found = QString::fromUtf8(outputInfo->name);
+        }
+        XRRFreeCrtcInfo(crtcInfo);
+      }
+    }
+    XRRFreeOutputInfo(outputInfo);
+  }
+
+  XRRFreeScreenResources(res);
+  return found;
 }
+} // namespace
 
 CaptureCoordinator *CaptureCoordinator::instance() {
   static CaptureCoordinator *coordinator = new CaptureCoordinator();
@@ -32,9 +73,13 @@ CaptureCoordinator::CaptureCoordinator(QObject *parent)
   connect(m_captureSocket, &CaptureSocket::bufReceived, this,
           [this](quint32 slot, quint32 width, quint32 height, quint32 stride,
                  quint64 modifier, int fd, int syncFd) {
-            if (m_active) {
-              m_active->stageBuf(slot, width, height, stride, modifier, fd,
-                                 syncFd);
+            uint32_t channel = slot / kCaptureSlotCount;
+            WallpaperCaptureItem *item = channelItem(channel);
+            if (!item) {
+              item = claimItemForSize(channel, width, height);
+            }
+            if (item) {
+              item->stageBuf(slot, width, height, stride, modifier, fd, syncFd);
             } else {
               ::close(fd);
               if (syncFd >= 0) {
@@ -44,16 +89,17 @@ CaptureCoordinator::CaptureCoordinator(QObject *parent)
           });
   connect(m_captureSocket, &CaptureSocket::frameReceived, this,
           [this](quint32 slot, int syncFd) {
-            if (m_active) {
-              m_active->stageFrame(slot, syncFd);
+            uint32_t channel = slot / kCaptureSlotCount;
+            if (WallpaperCaptureItem *item = channelItem(channel)) {
+              item->stageFrame(slot, syncFd);
             } else if (syncFd >= 0) {
               ::close(syncFd);
             }
           });
   connect(m_captureSocket, &CaptureSocket::shmReceived, this,
           [this](quint32 width, quint32 height, quint32 stride, int fd) {
-            if (m_active) {
-              m_active->stageShm(width, height, stride, fd);
+            if (m_primaryItem) {
+              m_primaryItem->stageShm(width, height, stride, fd);
             } else {
               ::close(fd);
             }
@@ -107,8 +153,16 @@ void CaptureCoordinator::unregisterItem(WallpaperCaptureItem *item) {
     return;
   }
   m_items.erase(it);
-  if (m_active == item) {
-    m_active = nullptr;
+  for (auto channelIt = m_channelItems.begin();
+       channelIt != m_channelItems.end();) {
+    if (channelIt->second == item) {
+      channelIt = m_channelItems.erase(channelIt);
+    } else {
+      ++channelIt;
+    }
+  }
+  if (m_primaryItem == item) {
+    m_primaryItem = nullptr;
   }
   reevaluateActiveItem();
   if (m_items.empty()) {
@@ -128,19 +182,58 @@ void CaptureCoordinator::reevaluateActiveItem() {
   if (!candidate && !m_items.empty()) {
     candidate = m_items.front();
   }
-  if (candidate == m_active) {
+  if (candidate == m_primaryItem) {
     return;
   }
-  if (m_active) {
-    m_active->clearDisplay();
-  }
-  m_active = candidate;
-  if (m_active) {
-    qInfo() << "[coordinator] active wallpaper item is now on screen"
-            << (m_active->window() && m_active->window()->screen()
-                    ? m_active->window()->screen()->name()
+  m_primaryItem = candidate;
+  if (m_primaryItem) {
+    qInfo() << "[coordinator] primary wallpaper item is now on screen"
+            << (m_primaryItem->window() && m_primaryItem->window()->screen()
+                    ? m_primaryItem->window()->screen()->name()
                     : QStringLiteral("<none>"));
   }
+}
+
+WallpaperCaptureItem *CaptureCoordinator::channelItem(uint32_t channel) const {
+  auto it = m_channelItems.find(channel);
+  return it == m_channelItems.end() ? nullptr : it->second;
+}
+
+WallpaperCaptureItem *CaptureCoordinator::claimItemForSize(uint32_t channel,
+                                                           quint32 width,
+                                                           quint32 height) {
+  QString outputName = x11OutputForSize(width, height);
+  if (outputName.isEmpty()) {
+    qWarning() << "[coordinator] XRandR has no output currently sized" << width
+               << "x" << height << "-- cannot bind channel" << channel;
+    return nullptr;
+  }
+
+  for (auto *item : m_items) {
+    bool alreadyClaimed = false;
+    for (const auto &[boundChannel, boundItem] : m_channelItems) {
+      if (boundItem == item) {
+        alreadyClaimed = true;
+        break;
+      }
+    }
+    if (alreadyClaimed) {
+      continue;
+    }
+    QScreen *screen = item->window() ? item->window()->screen() : nullptr;
+    if (screen && screen->name() == outputName) {
+      m_channelItems[channel] = item;
+      qInfo() << "[coordinator] channel" << channel << "bound to screen"
+              << outputName << "for stream" << width << "x" << height;
+      return item;
+    }
+  }
+  qWarning() << "[coordinator] XRandR output" << outputName << "(matched"
+             << width << "x" << height
+             << ") not found among registered wallpaper items, or already "
+                "claimed -- cannot bind channel"
+             << channel;
+  return nullptr;
 }
 
 void CaptureCoordinator::ensureSocketsBound() {
@@ -159,10 +252,10 @@ void CaptureCoordinator::teardownSockets() {
 
 std::optional<WallpiperProtocol::MonitorGeometry>
 CaptureCoordinator::geometryFromActiveItem() const {
-  if (!m_active) {
+  if (!m_primaryItem) {
     return std::nullopt;
   }
-  return m_active->currentGeometry();
+  return m_primaryItem->currentGeometry();
 }
 
 void CaptureCoordinator::handleDetach() {

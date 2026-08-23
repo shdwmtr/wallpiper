@@ -5,7 +5,9 @@
 #include <QObject>
 
 #include <atomic>
+#include <cstdint>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 QT_FORWARD_DECLARE_CLASS(QTimer)
@@ -23,7 +25,6 @@ public:
 
   void registerItem(WallpaperCaptureItem *item);
   void unregisterItem(WallpaperCaptureItem *item);
-
   void reevaluateActiveItem();
 
 private:
@@ -33,13 +34,18 @@ private:
   void ensureSocketsBound();
   void teardownSockets();
 
+  WallpaperCaptureItem *channelItem(uint32_t channel) const;
+  WallpaperCaptureItem *claimItemForSize(uint32_t channel, quint32 width,
+                                         quint32 height);
+
   std::optional<WallpiperProtocol::MonitorGeometry>
   geometryFromActiveItem() const;
   void handleDetach();
   void handleSetDebug(bool enabled);
 
   std::vector<WallpaperCaptureItem *> m_items;
-  WallpaperCaptureItem *m_active = nullptr;
+  std::unordered_map<uint32_t, WallpaperCaptureItem *> m_channelItems;
+  WallpaperCaptureItem *m_primaryItem = nullptr;
 
   CaptureSocket *m_captureSocket = nullptr;
   CtlListener *m_ctlListener = nullptr;

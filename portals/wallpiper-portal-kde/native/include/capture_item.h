@@ -5,6 +5,7 @@
 
 #include <QQuickItem>
 #include <QSGTexture>
+#include <qopengl.h>
 #include <qqmlintegration.h>
 
 #include <deque>
@@ -13,6 +14,15 @@
 #include <unordered_map>
 
 namespace WallpiperKde {
+
+struct BlitProgramState {
+  GLuint program = 0;
+  GLint texLoc = 0;
+  GLuint vao = 0;
+  GLuint vbo = 0;
+  bool ready = false;
+  bool failed = false;
+};
 
 class WallpaperCaptureItem : public QQuickItem {
   Q_OBJECT
@@ -102,6 +112,7 @@ private:
                          qint64 windowMs);
 
   EglDmabufImporter m_importer;
+  BlitProgramState m_blitProgram;
 
   std::unordered_map<quint32, SlotTexture> m_slotTextures;
   std::unique_ptr<QSGTexture> m_shmTexture;

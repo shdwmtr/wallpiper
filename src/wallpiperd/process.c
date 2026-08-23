@@ -9,8 +9,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "wallpiper/steam_paths.h"
-
 static bool pid_alive(int pid) {
   char path[64];
   snprintf(path, sizeof(path), "/proc/%d", pid);
@@ -113,98 +111,14 @@ void wp_find_renderer_pids(wp_pid_list_t *out) {
   scan_proc_pids(out, comm_is_renderer, NULL);
 }
 
-int wp_find_renderer_pid(void) {
-  wp_pid_list_t list;
-  wp_find_renderer_pids(&list);
-  return list.count > 0 ? list.pids[0] : -1;
-}
-
-static bool pid_has_env_var(int pid, const char *key, const char *value) {
-  char path[64];
-  snprintf(path, sizeof(path), "/proc/%d/environ", pid);
-  FILE *f = fopen(path, "rb");
-  if (!f) {
-    return false;
-  }
-
-  char marker[1024];
-  int marker_len = snprintf(marker, sizeof(marker), "%s=%s", key, value);
-  if (marker_len <= 0 || (size_t)marker_len >= sizeof(marker)) {
-    fclose(f);
-    return false;
-  }
-
-  char buf[16384];
-  size_t total = fread(buf, 1, sizeof(buf) - 1, f);
-  fclose(f);
-  buf[total] = '\0';
-
-  size_t offset = 0;
-  while (offset < total) {
-    const char *entry = buf + offset;
-    size_t entry_len = strlen(entry);
-    if (entry_len == (size_t)marker_len &&
-        memcmp(entry, marker, entry_len) == 0) {
-      return true;
-    }
-    offset += entry_len + 1;
-  }
-  return false;
-}
-
-typedef struct {
-  char compatdata[768];
-} location_ctx_t;
-
-static bool matches_location(int pid, const void *ctx) {
-  const location_ctx_t *lctx = ctx;
-  return pid_has_env_var(pid, "STEAM_COMPAT_DATA_PATH", lctx->compatdata);
-}
-
-static bool build_location_ctx(const char *location, location_ctx_t *ctx) {
-  char err[256];
-  return wp_compatdata_for(location, ctx->compatdata, sizeof(ctx->compatdata),
-                           err, sizeof(err));
-}
-
-void wp_find_renderer_pids_for_location(const char *location,
-                                        wp_pid_list_t *out) {
-  out->count = 0;
-  location_ctx_t ctx;
-  if (!build_location_ctx(location, &ctx)) {
-    return;
-  }
-
-  wp_pid_list_t candidates;
-  scan_proc_pids(&candidates, matches_location, &ctx);
-  for (size_t i = 0; i < candidates.count; i++) {
-    if (comm_is_renderer(candidates.pids[i], NULL)) {
-      out->pids[out->count++] = candidates.pids[i];
-    }
-  }
-}
-
 static bool comm_is_python3(int pid, const void *ctx) {
   (void)ctx;
   char comm[256];
   return read_comm(pid, comm, sizeof(comm)) && strcmp(comm, "python3") == 0;
 }
 
-void wp_find_proton_wrapper_pids_for_location(const char *location,
-                                              wp_pid_list_t *out) {
-  out->count = 0;
-  location_ctx_t ctx;
-  if (!build_location_ctx(location, &ctx)) {
-    return;
-  }
-
-  wp_pid_list_t candidates;
-  scan_proc_pids(&candidates, matches_location, &ctx);
-  for (size_t i = 0; i < candidates.count; i++) {
-    if (comm_is_python3(candidates.pids[i], NULL)) {
-      out->pids[out->count++] = candidates.pids[i];
-    }
-  }
+void wp_find_proton_wrapper_pids(wp_pid_list_t *out) {
+  scan_proc_pids(out, comm_is_python3, NULL);
 }
 
 static bool cmdline_contains(int pid, const void *ctx) {

@@ -18,7 +18,10 @@
 #include "wallpiper/debug_overlay.h"
 #include "wallpiper/monitor_geometry.h"
 
-#define WP_I3_MAX_SLOTS 8
+/* must match layer/siphon/config.h */
+#define WP_I3_CAPTURE_SLOT_COUNT 3
+#define WP_I3_MAX_CAPTURE_CHANNELS 4
+#define WP_I3_MAX_OUTPUTS WP_I3_MAX_CAPTURE_CHANNELS
 
 typedef struct {
   bool in_use;
@@ -43,16 +46,35 @@ typedef enum {
 } wp_i3_source_kind_t;
 
 typedef struct {
-  xcb_connection_t *conn;
+  bool known;
+  char name[64];
+  int32_t x;
+  int32_t y;
+  uint32_t width;
+  uint32_t height;
+
   xcb_window_t window;
   xcb_gcontext_t gc;
-  uint8_t depth;
-  wp_monitor_geometry_t geometry;
 
-  wp_i3_slot_t slots[WP_I3_MAX_SLOTS];
+  bool has_bound_channel;
+  uint32_t bound_channel;
+
+  wp_i3_slot_t slots[WP_I3_CAPTURE_SLOT_COUNT];
   wp_i3_shm_pixmap_t current_shm_pixmap;
   wp_i3_source_kind_t current_source_kind;
   uint32_t current_source_slot;
+} wp_i3_output_t;
+
+typedef struct {
+  xcb_connection_t *conn;
+  xcb_window_t root;
+  xcb_visualid_t visual;
+  uint8_t depth;
+
+  wp_monitor_geometry_t geometry;
+
+  wp_i3_output_t outputs[WP_I3_MAX_OUTPUTS];
+  size_t output_count;
 
   bool debug_enabled;
   wp_debug_throttle_t debug_throttle;
@@ -122,42 +144,10 @@ static char *run_command(const char *const argv[]) {
   return buf;
 }
 
-static bool try_detect_geometry(wp_monitor_geometry_t *out) {
-  const char *ws_argv[] = {"i3-msg", "-t", "get_workspaces", NULL};
-  char *ws_output = run_command(ws_argv);
-  if (!ws_output) {
-    return false;
-  }
-
-  cJSON *workspaces = cJSON_Parse(ws_output);
-  free(ws_output);
-  if (!workspaces || !cJSON_IsArray(workspaces)) {
-    cJSON_Delete(workspaces);
-    return false;
-  }
-
-  const char *output_name = NULL;
-  int ws_count = cJSON_GetArraySize(workspaces);
-  for (int i = 0; i < ws_count; i++) {
-    cJSON *ws = cJSON_GetArrayItem(workspaces, i);
-    cJSON *focused = cJSON_GetObjectItem(ws, "focused");
-    if (focused && cJSON_IsTrue(focused)) {
-      cJSON *output = cJSON_GetObjectItem(ws, "output");
-      if (cJSON_IsString(output)) {
-        output_name = output->valuestring;
-      }
-      break;
-    }
-  }
-  if (!output_name) {
-    cJSON_Delete(workspaces);
-    return false;
-  }
-
+static bool try_detect_outputs(wp_i3_state_t *state) {
   const char *out_argv[] = {"i3-msg", "-t", "get_outputs", NULL};
   char *out_output = run_command(out_argv);
   if (!out_output) {
-    cJSON_Delete(workspaces);
     return false;
   }
 
@@ -165,67 +155,67 @@ static bool try_detect_geometry(wp_monitor_geometry_t *out) {
   free(out_output);
   if (!outputs || !cJSON_IsArray(outputs)) {
     cJSON_Delete(outputs);
-    cJSON_Delete(workspaces);
     return false;
   }
 
-  bool found = false;
+  size_t count = 0;
   int out_count = cJSON_GetArraySize(outputs);
-  for (int i = 0; i < out_count; i++) {
+  for (int i = 0; i < out_count && count < WP_I3_MAX_OUTPUTS; i++) {
     cJSON *output = cJSON_GetArrayItem(outputs, i);
-    cJSON *name = cJSON_GetObjectItem(output, "name");
     cJSON *active = cJSON_GetObjectItem(output, "active");
-    if (!cJSON_IsString(name) || strcmp(name->valuestring, output_name) != 0) {
-      continue;
-    }
     if (!active || !cJSON_IsTrue(active)) {
       continue;
     }
-
+    cJSON *name = cJSON_GetObjectItem(output, "name");
     cJSON *rect = cJSON_GetObjectItem(output, "rect");
     cJSON *x = cJSON_GetObjectItem(rect, "x");
     cJSON *y = cJSON_GetObjectItem(rect, "y");
     cJSON *width = cJSON_GetObjectItem(rect, "width");
     cJSON *height = cJSON_GetObjectItem(rect, "height");
-    if (!cJSON_IsNumber(x) || !cJSON_IsNumber(y) || !cJSON_IsNumber(width) ||
-        !cJSON_IsNumber(height)) {
-      break;
+    if (!cJSON_IsString(name) || !cJSON_IsNumber(x) || !cJSON_IsNumber(y) ||
+        !cJSON_IsNumber(width) || !cJSON_IsNumber(height)) {
+      continue;
     }
 
+    wp_i3_output_t *out = &state->outputs[count];
+    memset(out, 0, sizeof(*out));
+    snprintf(out->name, sizeof(out->name), "%s", name->valuestring);
     out->x = (int32_t)x->valuedouble;
     out->y = (int32_t)y->valuedouble;
     out->width = (uint32_t)width->valuedouble;
     out->height = (uint32_t)height->valuedouble;
-    out->logical_width = out->width;
-    out->logical_height = out->height;
-    out->scale = 1.0;
-    found = true;
-    break;
+    out->known = true;
+    count++;
   }
 
   cJSON_Delete(outputs);
-  cJSON_Delete(workspaces);
-  return found;
+
+  if (count == 0) {
+    return false;
+  }
+  state->output_count = count;
+  return true;
 }
 
-static bool detect_geometry(wp_monitor_geometry_t *out) {
+static void detect_outputs(wp_i3_state_t *state) {
   for (int attempt = 1; attempt <= 3; attempt++) {
-    if (try_detect_geometry(out)) {
-      return true;
+    if (try_detect_outputs(state)) {
+      return;
     }
-    printf("monitor detection attempt %d failed, retrying\n", attempt);
+    printf("output detection attempt %d failed, retrying\n", attempt);
     usleep(500 * 1000);
   }
-  printf("monitor detection failed after retries, falling back to 1920x1080 at "
-         "0,0\n");
+  printf("output detection failed after retries, falling back to a single "
+         "1920x1080 output at 0,0\n");
+  wp_i3_output_t *out = &state->outputs[0];
+  memset(out, 0, sizeof(*out));
+  snprintf(out->name, sizeof(out->name), "fallback");
   out->x = 0;
   out->y = 0;
   out->width = 1920;
   out->height = 1080;
-  out->logical_width = 1920;
-  out->logical_height = 1080;
-  out->scale = 1.0;
-  return true;
+  out->known = true;
+  state->output_count = 1;
 }
 
 static void cursor_pos_fn(void *ctx, wp_ctl_response_t *out) {
@@ -263,74 +253,69 @@ static void cursor_pos_fn(void *ctx, wp_ctl_response_t *out) {
   xcb_disconnect(conn);
 }
 
-static void refresh_buffer(wp_i3_state_t *state) {
+static void refresh_buffer(wp_i3_state_t *state, wp_i3_output_t *out) {
   xcb_pixmap_t pixmap = XCB_NONE;
   uint32_t width = 0;
   uint32_t height = 0;
 
-  if (state->current_source_kind == WP_I3_SOURCE_SLOT) {
-    for (size_t i = 0; i < WP_I3_MAX_SLOTS; i++) {
-      if (state->slots[i].in_use &&
-          state->slots[i].slot == state->current_source_slot) {
-        pixmap = state->slots[i].pixmap;
-        width = state->slots[i].width;
-        height = state->slots[i].height;
-        break;
-      }
-    }
-    if (pixmap == XCB_NONE) {
+  if (out->current_source_kind == WP_I3_SOURCE_SLOT) {
+    uint32_t local_idx = out->current_source_slot % WP_I3_CAPTURE_SLOT_COUNT;
+    wp_i3_slot_t *slot = &out->slots[local_idx];
+    if (!slot->in_use || slot->slot != out->current_source_slot) {
       return;
     }
-  } else if (state->current_source_kind == WP_I3_SOURCE_SHM) {
-    if (!state->current_shm_pixmap.valid) {
+    pixmap = slot->pixmap;
+    width = slot->width;
+    height = slot->height;
+  } else if (out->current_source_kind == WP_I3_SOURCE_SHM) {
+    if (!out->current_shm_pixmap.valid) {
       return;
     }
-    pixmap = state->current_shm_pixmap.pixmap;
-    width = state->current_shm_pixmap.width;
-    height = state->current_shm_pixmap.height;
+    pixmap = out->current_shm_pixmap.pixmap;
+    width = out->current_shm_pixmap.width;
+    height = out->current_shm_pixmap.height;
   } else {
     return;
   }
 
-  xcb_copy_area(state->conn, pixmap, state->window, state->gc, 0, 0, 0, 0,
+  xcb_copy_area(state->conn, pixmap, out->window, out->gc, 0, 0, 0, 0,
                 (uint16_t)width, (uint16_t)height);
   xcb_flush(state->conn);
 
   wp_frame_stats_record_display(state->stats);
 
-  if (state->debug_enabled) {
+  if (state->debug_enabled && out == &state->outputs[0]) {
     static uint8_t pixels[WP_DEBUG_OVERLAY_BUFFER_SIZE];
     wp_render_stats_panel(state->stats, pixels);
-    int32_t overlay_y =
-        ((int32_t)state->geometry.height - WP_DEBUG_OVERLAY_HEIGHT) / 2;
+    int32_t overlay_y = ((int32_t)out->height - WP_DEBUG_OVERLAY_HEIGHT) / 2;
     if (overlay_y < 0) {
       overlay_y = 0;
     }
-    xcb_put_image(state->conn, XCB_IMAGE_FORMAT_Z_PIXMAP, state->window,
-                  state->gc, WP_DEBUG_OVERLAY_WIDTH, WP_DEBUG_OVERLAY_HEIGHT,
+    xcb_put_image(state->conn, XCB_IMAGE_FORMAT_Z_PIXMAP, out->window,
+                  out->gc, WP_DEBUG_OVERLAY_WIDTH, WP_DEBUG_OVERLAY_HEIGHT,
                   12, (int16_t)overlay_y, 0, state->depth, sizeof(pixels),
                   pixels);
     xcb_flush(state->conn);
   }
 }
 
-static void set_current_source(wp_i3_state_t *state, wp_i3_source_kind_t kind,
-                               uint32_t slot) {
-  state->current_source_kind = kind;
-  state->current_source_slot = slot;
-  refresh_buffer(state);
+static void set_current_source(wp_i3_state_t *state, wp_i3_output_t *out,
+                               wp_i3_source_kind_t kind, uint32_t slot) {
+  out->current_source_kind = kind;
+  out->current_source_slot = slot;
+  refresh_buffer(state, out);
 }
 
 static void draw_debug_overlay(wp_i3_state_t *state) {
+  wp_i3_output_t *out = &state->outputs[0];
   static uint8_t pixels[WP_DEBUG_OVERLAY_BUFFER_SIZE];
   wp_render_stats_panel(state->stats, pixels);
-  int32_t overlay_y =
-      ((int32_t)state->geometry.height - WP_DEBUG_OVERLAY_HEIGHT) / 2;
+  int32_t overlay_y = ((int32_t)out->height - WP_DEBUG_OVERLAY_HEIGHT) / 2;
   if (overlay_y < 0) {
     overlay_y = 0;
   }
-  xcb_put_image(state->conn, XCB_IMAGE_FORMAT_Z_PIXMAP, state->window,
-                state->gc, WP_DEBUG_OVERLAY_WIDTH, WP_DEBUG_OVERLAY_HEIGHT, 12,
+  xcb_put_image(state->conn, XCB_IMAGE_FORMAT_Z_PIXMAP, out->window, out->gc,
+                WP_DEBUG_OVERLAY_WIDTH, WP_DEBUG_OVERLAY_HEIGHT, 12,
                 (int16_t)overlay_y, 0, state->depth, sizeof(pixels), pixels);
   xcb_flush(state->conn);
 }
@@ -341,7 +326,7 @@ static void set_debug_enabled(wp_i3_state_t *state, bool enabled) {
   if (enabled) {
     draw_debug_overlay(state);
   } else {
-    refresh_buffer(state);
+    refresh_buffer(state, &state->outputs[0]);
   }
   printf("[ctl] debug overlay -> %s\n", enabled ? "true" : "false");
 }
@@ -352,54 +337,111 @@ static void maybe_redraw_debug(wp_i3_state_t *state) {
   }
 }
 
-static void handle_buf(wp_i3_state_t *state, uint32_t slot, uint32_t width,
-                       uint32_t height, uint32_t stride, uint64_t modifier,
-                       int fd) {
-  for (size_t i = 0; i < WP_I3_MAX_SLOTS; i++) {
-    if (state->slots[i].in_use && state->slots[i].slot == slot) {
-      xcb_free_pixmap(state->conn, state->slots[i].pixmap);
-      state->slots[i].in_use = false;
-      break;
+static wp_i3_output_t *find_output_for_channel(wp_i3_state_t *state,
+                                               uint32_t channel) {
+  for (size_t i = 0; i < state->output_count; i++) {
+    wp_i3_output_t *out = &state->outputs[i];
+    if (out->has_bound_channel && out->bound_channel == channel) {
+      return out;
     }
+  }
+  return NULL;
+}
+
+static wp_i3_output_t *claim_output_for_size(wp_i3_state_t *state,
+                                             uint32_t channel, uint32_t width,
+                                             uint32_t height) {
+  for (size_t i = 0; i < state->output_count; i++) {
+    wp_i3_output_t *out = &state->outputs[i];
+    if (out->known && !out->has_bound_channel && out->width == width &&
+        out->height == height) {
+      out->has_bound_channel = true;
+      out->bound_channel = channel;
+      return out;
+    }
+  }
+
+  wp_i3_output_t *best = NULL;
+  for (size_t i = 0; i < state->output_count; i++) {
+    wp_i3_output_t *out = &state->outputs[i];
+    if (!out->known || out->has_bound_channel) {
+      continue;
+    }
+    if (!best || out->x < best->x) {
+      best = out;
+    }
+  }
+  if (best) {
+    best->has_bound_channel = true;
+    best->bound_channel = channel;
+  }
+  return best;
+}
+
+static void handle_buf(wp_i3_state_t *state, uint32_t wire_slot,
+                       uint32_t width, uint32_t height, uint32_t stride,
+                       uint64_t modifier, int fd) {
+  uint32_t channel = wire_slot / WP_I3_CAPTURE_SLOT_COUNT;
+  uint32_t local_idx = wire_slot % WP_I3_CAPTURE_SLOT_COUNT;
+  if (channel >= WP_I3_MAX_CAPTURE_CHANNELS) {
+    printf("[socket] bad wire slot %u, dropping\n", wire_slot);
+    close(fd);
+    return;
+  }
+
+  wp_i3_output_t *out = find_output_for_channel(state, channel);
+  if (!out) {
+    out = claim_output_for_size(state, channel, width, height);
+    if (!out) {
+      printf("[socket] no output available for new channel %u (%ux%u), "
+             "dropping\n",
+             channel, width, height);
+      close(fd);
+      return;
+    }
+    printf("[socket] channel %u bound to output=%s at (%d,%d) for stream "
+           "%ux%u\n",
+           channel, out->name, out->x, out->y, width, height);
+  }
+
+  wp_i3_slot_t *slot = &out->slots[local_idx];
+  if (slot->in_use) {
+    xcb_free_pixmap(state->conn, slot->pixmap);
+    slot->in_use = false;
   }
 
   xcb_pixmap_t pixmap = xcb_generate_id(state->conn);
   xcb_void_cookie_t cookie = xcb_dri3_pixmap_from_buffers_checked(
-      state->conn, pixmap, state->window, 1, (uint16_t)width, (uint16_t)height,
+      state->conn, pixmap, out->window, 1, (uint16_t)width, (uint16_t)height,
       stride, 0, 0, 0, 0, 0, 0, 0, state->depth, 32, modifier, &fd);
   xcb_generic_error_t *err = xcb_request_check(state->conn, cookie);
   if (err) {
-    printf("[socket] dri3 pixmap import failed for slot %u\n", slot);
+    printf("[socket] dri3 pixmap import failed for slot %u\n", wire_slot);
     free(err);
     return;
   }
 
-  int free_index = -1;
-  for (size_t i = 0; i < WP_I3_MAX_SLOTS; i++) {
-    if (!state->slots[i].in_use) {
-      free_index = (int)i;
-      break;
-    }
-  }
-  if (free_index < 0) {
-    printf("[socket] slot table full, dropping capture slot %u\n", slot);
-    xcb_free_pixmap(state->conn, pixmap);
-    return;
-  }
+  slot->in_use = true;
+  slot->slot = wire_slot;
+  slot->pixmap = pixmap;
+  slot->width = width;
+  slot->height = height;
 
-  state->slots[free_index].in_use = true;
-  state->slots[free_index].slot = slot;
-  state->slots[free_index].pixmap = pixmap;
-  state->slots[free_index].width = width;
-  state->slots[free_index].height = height;
-
-  printf("[socket] registered capture slot %u %ux%u stride=%u modifier=%llu\n",
-         slot, width, height, stride, (unsigned long long)modifier);
-  set_current_source(state, WP_I3_SOURCE_SLOT, slot);
+  printf("[socket] output=%s registered capture slot %u (channel=%u "
+         "local=%u) %ux%u stride=%u modifier=%llu\n",
+         out->name, wire_slot, channel, local_idx, width, height, stride,
+         (unsigned long long)modifier);
+  set_current_source(state, out, WP_I3_SOURCE_SLOT, wire_slot);
 }
 
 static void handle_shm(wp_i3_state_t *state, uint32_t width, uint32_t height,
                        uint32_t stride, int fd) {
+  if (state->output_count == 0) {
+    close(fd);
+    return;
+  }
+  wp_i3_output_t *out = &state->outputs[0];
+
   if (stride != width * 4) {
     printf("[socket] shm frame stride %u doesn't match tightly-packed %ux4, "
            "X11's MIT-SHM CreatePixmap can't "
@@ -422,7 +464,7 @@ static void handle_shm(wp_i3_state_t *state, uint32_t width, uint32_t height,
 
   xcb_pixmap_t pixmap = xcb_generate_id(state->conn);
   xcb_void_cookie_t cookie = xcb_shm_create_pixmap_checked(
-      state->conn, pixmap, state->window, (uint16_t)width, (uint16_t)height,
+      state->conn, pixmap, out->window, (uint16_t)width, (uint16_t)height,
       state->depth, seg, 0);
   xcb_generic_error_t *err = xcb_request_check(state->conn, cookie);
   if (err) {
@@ -432,17 +474,17 @@ static void handle_shm(wp_i3_state_t *state, uint32_t width, uint32_t height,
     return;
   }
 
-  if (state->current_shm_pixmap.valid) {
-    xcb_free_pixmap(state->conn, state->current_shm_pixmap.pixmap);
-    xcb_shm_detach(state->conn, state->current_shm_pixmap.seg);
+  if (out->current_shm_pixmap.valid) {
+    xcb_free_pixmap(state->conn, out->current_shm_pixmap.pixmap);
+    xcb_shm_detach(state->conn, out->current_shm_pixmap.seg);
   }
-  state->current_shm_pixmap.valid = true;
-  state->current_shm_pixmap.pixmap = pixmap;
-  state->current_shm_pixmap.seg = seg;
-  state->current_shm_pixmap.width = width;
-  state->current_shm_pixmap.height = height;
+  out->current_shm_pixmap.valid = true;
+  out->current_shm_pixmap.pixmap = pixmap;
+  out->current_shm_pixmap.seg = seg;
+  out->current_shm_pixmap.width = width;
+  out->current_shm_pixmap.height = height;
 
-  set_current_source(state, WP_I3_SOURCE_SHM, 0);
+  set_current_source(state, out, WP_I3_SOURCE_SHM, 0);
 }
 
 static void handle_capture_event(wp_i3_state_t *state,
@@ -463,11 +505,11 @@ static void handle_capture_event(wp_i3_state_t *state,
     if (event->nfds > 0) {
       close(event->fds[0]);
     }
-    for (size_t i = 0; i < WP_I3_MAX_SLOTS; i++) {
-      if (state->slots[i].in_use && state->slots[i].slot == event->slot) {
-        set_current_source(state, WP_I3_SOURCE_SLOT, event->slot);
-        break;
-      }
+    uint32_t channel = event->slot / WP_I3_CAPTURE_SLOT_COUNT;
+    uint32_t local_idx = event->slot % WP_I3_CAPTURE_SLOT_COUNT;
+    wp_i3_output_t *out = find_output_for_channel(state, channel);
+    if (out && out->slots[local_idx].in_use) {
+      set_current_source(state, out, WP_I3_SOURCE_SLOT, event->slot);
     }
     break;
   }
@@ -480,23 +522,27 @@ static void handle_capture_event(wp_i3_state_t *state,
 }
 
 static void detach(wp_i3_state_t *state) {
-  for (size_t i = 0; i < WP_I3_MAX_SLOTS; i++) {
-    if (state->slots[i].in_use) {
-      xcb_free_pixmap(state->conn, state->slots[i].pixmap);
-      state->slots[i].in_use = false;
+  for (size_t i = 0; i < state->output_count; i++) {
+    wp_i3_output_t *out = &state->outputs[i];
+    for (size_t j = 0; j < WP_I3_CAPTURE_SLOT_COUNT; j++) {
+      if (out->slots[j].in_use) {
+        xcb_free_pixmap(state->conn, out->slots[j].pixmap);
+        out->slots[j].in_use = false;
+      }
     }
-  }
-  if (state->current_shm_pixmap.valid) {
-    xcb_free_pixmap(state->conn, state->current_shm_pixmap.pixmap);
-    xcb_shm_detach(state->conn, state->current_shm_pixmap.seg);
-    state->current_shm_pixmap.valid = false;
-  }
-  state->current_source_kind = WP_I3_SOURCE_NONE;
+    if (out->current_shm_pixmap.valid) {
+      xcb_free_pixmap(state->conn, out->current_shm_pixmap.pixmap);
+      xcb_shm_detach(state->conn, out->current_shm_pixmap.seg);
+      out->current_shm_pixmap.valid = false;
+    }
+    out->current_source_kind = WP_I3_SOURCE_NONE;
+    out->has_bound_channel = false;
 
-  uint32_t value_list[1] = {0};
-  xcb_change_window_attributes(state->conn, state->window, XCB_CW_BACK_PIXEL,
-                               value_list);
-  xcb_clear_area(state->conn, 0, state->window, 0, 0, 0, 0);
+    uint32_t value_list[1] = {0};
+    xcb_change_window_attributes(state->conn, out->window, XCB_CW_BACK_PIXEL,
+                                 value_list);
+    xcb_clear_area(state->conn, 0, out->window, 0, 0, 0, 0);
+  }
   xcb_flush(state->conn);
   printf("[ctl] detached, released all buffers\n");
 }
@@ -505,14 +551,21 @@ static void handle_x_event(wp_i3_state_t *state, xcb_generic_event_t *event) {
   uint8_t response_type = event->response_type & 0x7f;
   if (response_type == XCB_EXPOSE) {
     xcb_expose_event_t *expose = (xcb_expose_event_t *)event;
-    if (expose->window == state->window && expose->count == 0) {
-      refresh_buffer(state);
+    if (expose->count == 0) {
+      for (size_t i = 0; i < state->output_count; i++) {
+        if (state->outputs[i].window == expose->window) {
+          refresh_buffer(state, &state->outputs[i]);
+          break;
+        }
+      }
     }
   } else if (response_type == XCB_DESTROY_NOTIFY) {
     xcb_destroy_notify_event_t *destroy = (xcb_destroy_notify_event_t *)event;
-    if (destroy->window == state->window) {
-      printf("background window destroyed, exiting\n");
-      exit(0);
+    for (size_t i = 0; i < state->output_count; i++) {
+      if (state->outputs[i].window == destroy->window) {
+        printf("background window destroyed, exiting\n");
+        exit(0);
+      }
     }
   } else if (response_type == 0) {
     printf("[x11] protocol error\n");
@@ -563,12 +616,18 @@ int main(void) {
   state.stats = wp_frame_stats_create();
   wp_debug_throttle_init(&state.debug_throttle);
 
-  detect_geometry(&state.geometry);
-  printf(
-      "detected monitor geometry: x=%d y=%d %ux%u logical=%ux%u scale=%.4f\n",
-      state.geometry.x, state.geometry.y, state.geometry.width,
-      state.geometry.height, state.geometry.logical_width,
-      state.geometry.logical_height, state.geometry.scale);
+  detect_outputs(&state);
+  wp_i3_output_t *primary = &state.outputs[0];
+  state.geometry.x = primary->x;
+  state.geometry.y = primary->y;
+  state.geometry.width = primary->width;
+  state.geometry.height = primary->height;
+  state.geometry.logical_width = primary->width;
+  state.geometry.logical_height = primary->height;
+  state.geometry.scale = 1.0;
+  printf("detected %zu output(s), primary geometry: x=%d y=%d %ux%u\n",
+         state.output_count, state.geometry.x, state.geometry.y,
+         state.geometry.width, state.geometry.height);
 
   int screen_num = 0;
   state.conn = xcb_connect(NULL, &screen_num);
@@ -583,9 +642,9 @@ int main(void) {
     xcb_screen_next(&screen_iter);
   }
   xcb_screen_t *screen = screen_iter.data;
-  xcb_window_t root = screen->root;
+  state.root = screen->root;
   state.depth = screen->root_depth;
-  xcb_visualid_t visual = screen->root_visual;
+  state.visual = screen->root_visual;
 
   xcb_generic_error_t *err = NULL;
 
@@ -608,37 +667,40 @@ int main(void) {
   }
   free(shm_reply);
 
-  state.window = xcb_generate_id(state.conn);
-  uint32_t win_value_list[4] = {0, XCB_BACKING_STORE_ALWAYS, 1,
-                                XCB_EVENT_MASK_EXPOSURE};
-  uint32_t win_value_mask = XCB_CW_BACK_PIXEL | XCB_CW_BACKING_STORE |
-                            XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK;
-  xcb_void_cookie_t create_cookie = xcb_create_window_checked(
-      state.conn, state.depth, state.window, root, (int16_t)state.geometry.x,
-      (int16_t)state.geometry.y, (uint16_t)state.geometry.width,
-      (uint16_t)state.geometry.height, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, visual,
-      win_value_mask, win_value_list);
-  xcb_generic_error_t *create_err =
-      xcb_request_check(state.conn, create_cookie);
-  if (create_err) {
-    fprintf(stderr, "create_window failed\n");
-    free(create_err);
-    return 1;
+  for (size_t i = 0; i < state.output_count; i++) {
+    wp_i3_output_t *out = &state.outputs[i];
+
+    out->window = xcb_generate_id(state.conn);
+    uint32_t win_value_list[4] = {0, XCB_BACKING_STORE_ALWAYS, 1,
+                                  XCB_EVENT_MASK_EXPOSURE};
+    uint32_t win_value_mask = XCB_CW_BACK_PIXEL | XCB_CW_BACKING_STORE |
+                              XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK;
+    xcb_void_cookie_t create_cookie = xcb_create_window_checked(
+        state.conn, state.depth, out->window, state.root, (int16_t)out->x,
+        (int16_t)out->y, (uint16_t)out->width, (uint16_t)out->height, 0,
+        XCB_WINDOW_CLASS_INPUT_OUTPUT, state.visual, win_value_mask,
+        win_value_list);
+    xcb_generic_error_t *create_err =
+        xcb_request_check(state.conn, create_cookie);
+    if (create_err) {
+      fprintf(stderr, "create_window failed for output %s\n", out->name);
+      free(create_err);
+      return 1;
+    }
+
+    xcb_map_window(state.conn, out->window);
+
+    uint32_t stack_value_list[1] = {XCB_STACK_MODE_BELOW};
+    xcb_configure_window(state.conn, out->window,
+                         XCB_CONFIG_WINDOW_STACK_MODE, stack_value_list);
+
+    out->gc = xcb_generate_id(state.conn);
+    xcb_create_gc(state.conn, out->gc, out->window, 0, NULL);
+
+    printf("background window %u mapped for output %s at %ux%u+%d+%d\n",
+           out->window, out->name, out->width, out->height, out->x, out->y);
   }
-
-  xcb_map_window(state.conn, state.window);
-
-  uint32_t stack_value_list[1] = {XCB_STACK_MODE_BELOW};
-  xcb_configure_window(state.conn, state.window, XCB_CONFIG_WINDOW_STACK_MODE,
-                       stack_value_list);
-
-  state.gc = xcb_generate_id(state.conn);
-  xcb_create_gc(state.conn, state.gc, state.window, 0, NULL);
   xcb_flush(state.conn);
-
-  printf("background window %u mapped at %ux%u+%d+%d\n", state.window,
-         state.geometry.width, state.geometry.height, state.geometry.x,
-         state.geometry.y);
 
   int capture_fd = wp_bind_capture_socket();
   wp_ctl_listener_t *ctl_listener =

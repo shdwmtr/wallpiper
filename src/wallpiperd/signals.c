@@ -80,3 +80,5 @@ void wp_install_shutdown_handler(wp_shutdown_fn on_shutdown) {
   }
   pthread_detach(thread);
 }
+
+void wp_ignore_sigpipe(void) { signal(SIGPIPE, SIG_IGN); }

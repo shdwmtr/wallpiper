@@ -32,7 +32,7 @@ static void *geometry_wait_thread_main(void *arg) {
   printf("detected monitor: x=%d y=%d w=%u h=%u lw=%u lh=%u scale=%g\n",
          monitor.x, monitor.y, monitor.width, monitor.height,
          monitor.logical_width, monitor.logical_height, monitor.scale);
-  wp_renderer_swap("default", monitor);
+  wp_renderer_swap(monitor);
   return NULL;
 }
 
@@ -133,6 +133,7 @@ static void *daemon_ctl_listener_thread_main(void *arg) {
 static void run(void) {
   printf("wallpiper-daemon starting\n");
 
+  wp_ignore_sigpipe();
   wp_reap_children_forever();
   wp_install_shutdown_handler(wp_cleanup);
 

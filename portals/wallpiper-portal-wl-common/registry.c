@@ -7,6 +7,18 @@
 static uint32_t min_u32(uint32_t a, uint32_t b) { return a < b ? a : b; }
 #define MIN_U32(a, b) min_u32((uint32_t)(a), (uint32_t)(b))
 
+wp_wl_output_t *wp_wl_add_output(wp_wl_state_t *state,
+                                 struct wl_output *output) {
+  if (state->output_count >= WP_WL_MAX_OUTPUTS) {
+    return NULL;
+  }
+  wp_wl_output_t *out = &state->outputs[state->output_count++];
+  out->state = state;
+  out->output = output;
+  out->scale = 1.0;
+  return out;
+}
+
 static void registry_global(void *data, struct wl_registry *registry,
                             uint32_t name, const char *interface,
                             uint32_t version) {
@@ -45,7 +57,13 @@ static void registry_global(void *data, struct wl_registry *registry,
     struct wl_output *output =
         wl_registry_bind(registry, name, &wl_output_interface,
                          MIN_U32(version, wl_output_interface.version));
-    wp_wl_attach_output_listener(state, output);
+    wp_wl_output_t *out = wp_wl_add_output(state, output);
+    if (out) {
+      wp_wl_attach_output_listener(out);
+    } else {
+      printf("wl_output %u ignored: WP_WL_MAX_OUTPUTS (%d) already reached\n",
+             name, WP_WL_MAX_OUTPUTS);
+    }
   }
 }
 
