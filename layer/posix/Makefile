@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 #
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Ethan Alexander
@@ -22,50 +21,33 @@
 # SOFTWARE.
 #
 
+CC ?= cc
+CFLAGS ?= -std=gnu99 -Os -Wall -Wextra -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables
 
-dry_run() {
-    [ -n "${CBUILD_TRACE_DIR:-}" ]
-}
+TARGET_DIR := ../../target/release
+OBJ_DIR := ../../target/objects
+SO := $(TARGET_DIR)/libwallpiper-preload.so
 
-is_stale() {
-    local target="$1"
-    shift
-    [ ! -e "$target" ] && return 0
-    local dep
-    for dep in "$@"; do
-        [ "$dep" -nt "$target" ] && return 0
-    done
-    return 1
-}
+SRCS := \
+	cursor_forward.c \
+	fonts.c \
+	guardian.c \
+	x11.c
 
-trace_compile() {
-    [ -z "${CBUILD_TRACE_DIR:-}" ] && return 0
-    local f
-    f="$(mktemp "$CBUILD_TRACE_DIR/rec.XXXXXX")"
-    {
-        pwd -P
-        printf '%s\n' "$@"
-    } >"$f"
-}
+OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
 
-compile_c() {
-    local cc="$1" obj="$2" src="$3"
-    shift 3
-    trace_compile "$cc" "$@" -c -o "$obj" "$src"
-    dry_run && return 0
-    if is_stale "$obj" "$src"; then
-        echo "cc $src"
-        "$cc" "$@" -c -o "$obj" "$src"
-    fi
-}
+.PHONY: build clean
 
-archive_lib() {
-    dry_run && return 0
-    local lib="$1"
-    shift
-    if is_stale "$lib" "$@"; then
-        echo "ar $(basename "$lib")"
-        rm -f "$lib"
-        ar rcs "$lib" "$@"
-    fi
-}
+build: $(SO)
+
+$(SO): $(OBJS) | $(TARGET_DIR)
+	$(CC) $(CFLAGS) -shared -Wl,--gc-sections -s -o $@ $(OBJS) -ldl -lpthread
+
+$(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(TARGET_DIR) $(OBJ_DIR):
+	mkdir -p $@
+
+clean:
+	rm -rf $(OBJ_DIR) $(SO)

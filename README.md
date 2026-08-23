@@ -4,8 +4,18 @@ An ~100kb native translation layer for Wallpaper Engine on GNU/Linux based compo
 
 ## Dependencies
 
+* GNU Make
 * A C99 Compiler
 * Valve's Proton (>= v11.0 was tested working)
+* dbus
+* Vulkan headers and loader
+* fontconfig
+
+On Arch Linux:
+
+```sh
+$ pacman -S base-devel dbus vulkan-headers vulkan-icd-loader fontconfig
+```
 
 ## Installation
 
@@ -14,10 +24,10 @@ An ~100kb native translation layer for Wallpaper Engine on GNU/Linux based compo
 Start by building the core of wallpiper
 
 ```sh
-$ ./build.sh build-core
+$ make build-core
 
 # optionally install wallpiper to `%HOME/.local/lib/wallpiper/`
-$ ./build.sh install-wallpiperd
+$ make install-wallpiperd
 ```
 
 ### Wallpiper Portals
@@ -42,20 +52,22 @@ Implemented as an in-process GObject-Introspection library driven by a GNOME She
 * gobject-introspection
 * mesa
 * libdrm
+* libxrandr
+* libx11
 
 On Arch Linux:
 
 ```sh
-$ pacman -S mutter gobject-introspection mesa libdrm
+$ pacman -S mutter gobject-introspection mesa libdrm libxrandr libx11
 ```
 
 ### Build
 
 ```sh
-$ ./build.sh build-gnome
+$ make build-gnome
 
 # requires root 
-$ ./build.sh install-gnome
+$ make install-gnome
 ```
 
 Log out and back in, then ensure the extension is enabled. 
@@ -70,20 +82,22 @@ Implemented as a Qt Quick/QML plugin, installed as a Plasma 6 Wallpaper KPackage
 - extra-cmake-modules
 - qt6-base
 - qt6-declarative
+- mesa (for EGL)
+- libx11
 
 On Arch Linux:
 
 ```sh
-$ pacman -S cmake extra-cmake-modules qt6-base qt6-declarative
+$ pacman -S cmake extra-cmake-modules qt6-base qt6-declarative mesa libx11
 ```
 
 ### Build
 
 ```sh
-$ ./build.sh build-kde
+$ make build-kde
 
 # requires root 
-$ ./build.sh install-kde
+$ make install-kde
 ```
 
 1. Open System Settings -> Wallpaper
@@ -96,12 +110,19 @@ Uses `wlr-layer-shell`. No shell extension, and no install step.
 
 ### Dependencies
 
-None beyond the [core dependencies](#dependencies).
+* wayland
+* wayland-protocols
+
+On Arch Linux:
+
+```sh
+$ pacman -S wayland wayland-protocols
+```
 
 ### Build
 
 ```sh
-$ ./build.sh build-hyprland
+$ make build-hyprland
 ```
 
 ## Sway portal
@@ -124,12 +145,19 @@ Uses `wlr-layer-shell`. No shell extension, and no install step.
 
 ### Dependencies
 
-None beyond the [core dependencies](#dependencies).
+* wayland
+* wayland-protocols
+
+On Arch Linux:
+
+```sh
+$ pacman -S wayland wayland-protocols
+```
 
 ### Build
 
 ```sh
-$ ./build.sh build-sway
+$ make build-sway
 ```
 
 ## i3wm portal
@@ -138,12 +166,18 @@ Interfaces with X11 directly. No shell extension, and no install step.
 
 ### Dependencies
 
-None beyond the [core dependencies](#dependencies).
+* libxcb (including its `xcb-dri3` and `xcb-shm` extensions)
+
+On Arch Linux:
+
+```sh
+$ pacman -S libxcb
+```
 
 ### Build
 
 ```sh
-$ ./build.sh build-i3
+$ make build-i3
 ```
 
 ## Usage

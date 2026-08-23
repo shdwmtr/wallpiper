@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 #
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Ethan Alexander
@@ -22,45 +21,34 @@
 # SOFTWARE.
 #
 
-set -euo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")"
-source ../../scripts/lib/cbuild.sh
+CC ?= cc
+CFLAGS ?= -std=gnu99 -Os -Wall -Wextra -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../protocol/include -I../../vendor/cjson
 
-CC="${CC:-cc}"
-CFLAGS=(-std=gnu99 -Os -Wall -Wextra -fPIC -fvisibility=hidden -D_GNU_SOURCE
-    -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables)
+TARGET_DIR := ../../target/release
+OBJ_DIR := ../../target/objects/wallpiperctl
+BIN := $(TARGET_DIR)/wallpiperctl
+PROTOCOL_LIB := $(TARGET_DIR)/libwallpiper-protocol.a
 
-TARGET_DIR=../../target/release
-OBJ_DIR=../../target/objects
-SO="$TARGET_DIR/libwallpiper-preload.so"
+SRCS := \
+	main.c
 
-SRCS=(
-    cursor_forward.c
-    fonts.c
-    guardian.c
-    x11.c
-)
+OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
 
-do_build() {
-    mkdir -p "$TARGET_DIR" "$OBJ_DIR"
-    local objs=()
-    for src in "${SRCS[@]}"; do
-        obj="$OBJ_DIR/${src%.c}.o"
-        compile_c "$CC" "$obj" "$src" "${CFLAGS[@]}"
-        objs+=("$obj")
-    done
-    if ! dry_run && is_stale "$SO" "${objs[@]}"; then
-        echo "cc $(basename "$SO")"
-        "$CC" "${CFLAGS[@]}" -shared -Wl,--gc-sections -s -o "$SO" "${objs[@]}" -ldl -lpthread
-    fi
-}
+.PHONY: build build-protocol clean
 
-do_clean() {
-    rm -rf "$OBJ_DIR" "$SO"
-}
+build: build-protocol $(BIN)
 
-case "${1:-build}" in
-    build) do_build ;;
-    clean) do_clean ;;
-    *) echo "usage: $0 {build|clean}" >&2; exit 1 ;;
-esac
+$(BIN): $(OBJS) $(PROTOCOL_LIB) | $(TARGET_DIR)
+	$(CC) $(CFLAGS) -Wl,--gc-sections -s -o $@ $(OBJS) $(PROTOCOL_LIB) -lpthread
+
+$(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+build-protocol:
+	$(MAKE) -C ../../protocol build
+
+$(TARGET_DIR) $(OBJ_DIR):
+	mkdir -p $@
+
+clean:
+	rm -rf $(OBJ_DIR) $(BIN)
