@@ -60,7 +60,7 @@ jobs:
           mkdir -p /tmp/verify
           extract() {
             local pkgfile
-            pkgfile=$(ls /home/builder/pkg/$1-*.pkg.tar.zst)
+            pkgfile=$(ls /home/builder/pkg/$1-*.pkg.tar.zst | grep -v -- '-debug-')
             mkdir -p "/tmp/verify/$1"
             tar -xf "$pkgfile" -C "/tmp/verify/$1"
           }
