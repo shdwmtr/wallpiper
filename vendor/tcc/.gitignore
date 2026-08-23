@@ -16,6 +16,8 @@
 a.out
 tcc_g
 tcc
+!win32/include/tcc/
+!win32/include/tcc/tcc_libm.h
 tcc_c
 tcc_p
 *-tcc
@@ -26,6 +28,7 @@ config*.h
 config*.mak
 config.texi
 conftest*
+!conftest.c
 c2str
 tags
 TAGS
