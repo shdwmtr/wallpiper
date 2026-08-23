@@ -38,8 +38,9 @@ Wallpiper supports the following DE/WM(s) through the following portals. Jump to
 * [wallpiper-portal-gnome](#gnome-mutter-portal)
 * [wallpiper-portal-kde](#kde-plasma-portal)
 * [wallpiper-portal-hyprland](#hyprland-portal)
-* [wallpiper-portal-i3](#i3wm-portal)
 * [wallpiper-portal-sway](#sway-portal)
+* [wallpiper-portal-cosmic](#cosmic-portal)
+* [wallpiper-portal-i3](#i3wm-portal)
 
 Pull requests are welcome for additional portals. You can also submit an issue report to suggest other portals.
 
@@ -161,6 +162,31 @@ $ pacman -S wayland wayland-protocols
 $ make build-sway
 ```
 
+## COSMIC portal
+
+> [!WARNING]
+> COSMIC's IPC has no query for the compositor's global cursor position, so this portal can't support
+> cursor-reactive wallpapers.
+
+Uses `wlr-layer-shell`. No shell extension, and no install step.
+
+### Dependencies
+
+* wayland
+* wayland-protocols
+
+On Arch Linux:
+
+```sh
+$ pacman -S wayland wayland-protocols
+```
+
+### Build
+
+```sh
+$ make build-cosmic
+```
+
 ## i3wm portal
 
 Interfaces with X11 directly. No shell extension, and no install step.
@@ -193,7 +219,7 @@ $ WALLPIPER_PORTAL=hyprland ./target/release/wallpiperd
 ```
 
 #### `WALLPIPER_PORTAL` (required)
-  Which portal to use: `hyprland`, `sway`, `i3`, `gnome`, `kde`
+  Which portal to use: `hyprland`, `sway`, `cosmic`, `i3`, `gnome`, `kde`
 
 #### `WALLPIPER_STEAM_ROOT`
   **Default:** auto-detected (`~/.local/share/Steam`, `~/.steam/steam`, `~/.steam/root`, or the Flatpak path)

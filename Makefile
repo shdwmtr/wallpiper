@@ -26,13 +26,13 @@ XDG_DATA_HOME ?= $(HOME)/.local/share
 
 .PHONY: help build-all build-core build-protocol build-daemon build-ctl build-vklayer \
         build-interpose build-dwmapi-shim build-wl-common build-hyprland build-i3 \
-        build-sway build-gnome build-kde configure-kde install-gnome install-kde \
+        build-sway build-cosmic build-gnome build-kde configure-kde install-gnome install-kde \
         install-wallpiperd compile-commands fmt clean
 
 help:
 	@awk '/^[a-zA-Z0-9_-]+:/{sub(/:.*/, "", $$1); print $$1}' $(MAKEFILE_LIST) | sort -u
 
-build-all: build-protocol build-daemon build-ctl build-vklayer build-interpose build-dwmapi-shim build-wl-common build-hyprland build-i3 build-sway build-gnome build-kde
+build-all: build-protocol build-daemon build-ctl build-vklayer build-interpose build-dwmapi-shim build-wl-common build-hyprland build-i3 build-sway build-cosmic build-gnome build-kde
 
 build-core: build-protocol build-daemon build-ctl build-vklayer build-interpose build-dwmapi-shim
 
@@ -66,6 +66,9 @@ build-i3:
 build-sway:
 	$(MAKE) -C portals/wallpiper-portal-sway build
 
+build-cosmic:
+	$(MAKE) -C portals/wallpiper-portal-cosmic build
+
 build-gnome:
 	$(MAKE) -C portals/wallpiper-portal-gnome/native build
 
@@ -92,7 +95,7 @@ install-wallpiperd: build-core
 	install -m 755 target/release/libwallpiper-preload.so "$(HOME)/.local/lib/wallpiper/"
 	install -m 755 target/release/libVkLayer_wallpiper_capture.so "$(HOME)/.local/lib/wallpiper/"
 	install -m 644 target/release/dwmapi.dll "$(HOME)/.local/lib/wallpiper/"
-	for portal in hyprland i3 sway; do bin="target/release/wallpiper-portal-$$portal"; [ -f "$$bin" ] && install -m 755 "$$bin" "$(HOME)/.local/lib/wallpiper/" || true; done
+	for portal in hyprland i3 sway cosmic; do bin="target/release/wallpiper-portal-$$portal"; [ -f "$$bin" ] && install -m 755 "$$bin" "$(HOME)/.local/lib/wallpiper/" || true; done
 	mkdir -p "$(HOME)/.local/bin"
 	ln -sf "$(HOME)/.local/lib/wallpiper/wallpiperd" "$(HOME)/.local/bin/wallpiperd"
 	ln -sf "$(HOME)/.local/lib/wallpiper/wallpiperctl" "$(HOME)/.local/bin/wallpiperctl"
