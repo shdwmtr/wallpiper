@@ -242,6 +242,15 @@ void wp_renderer_spawn(wp_monitor_geometry_t monitor) {
       if (wp_ctl_socket_path(portal_name, ctl_socket, sizeof(ctl_socket))) {
         setenv("WALLPIPER_PORTAL_CTL_SOCKET", ctl_socket, 1);
       }
+
+      /* GNOME and KDE composite the embedded window at the correct DPI
+       * themselves, manually tested. */
+      if (strcmp(portal_name, "gnome") != 0 &&
+          strcmp(portal_name, "kde") != 0) {
+        char scale_str[32];
+        snprintf(scale_str, sizeof(scale_str), "%g", monitor.scale);
+        setenv("WALLPIPER_UI_SCALE_FACTOR", scale_str, 1);
+      }
     }
 
     char cursor_path[1024];

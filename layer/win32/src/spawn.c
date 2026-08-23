@@ -45,6 +45,22 @@ static BOOL WINAPI fake_CreateProcessA(
     LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles,
     DWORD dwCreationFlags, LPVOID lpEnvironment, LPCSTR lpCurrentDirectory,
     LPSTARTUPINFOA lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation) {
+  char patched_cmdline[1024];
+  BOOL is_wallpaperui =
+      (lpApplicationName && ansi_contains_ci(lpApplicationName,
+                                             "wallpaperui.exe")) ||
+      (lpCommandLine && ansi_contains_ci(lpCommandLine, "wallpaperui.exe"));
+  if (is_wallpaperui && lpCommandLine) {
+    char scale[32];
+    DWORD scale_len =
+        GetEnvironmentVariableA("WALLPIPER_UI_SCALE_FACTOR", scale, sizeof(scale));
+    if (scale_len > 0 && scale_len < sizeof(scale)) {
+      wsprintfA(patched_cmdline, "%s --force-device-scale-factor=%s",
+                lpCommandLine, scale);
+      lpCommandLine = patched_cmdline;
+    }
+  }
+
   BOOL ok = real_CreateProcessA
                 ? real_CreateProcessA(lpApplicationName, lpCommandLine,
                                       lpProcessAttributes, lpThreadAttributes,
@@ -74,6 +90,22 @@ static BOOL WINAPI fake_CreateProcessW(
     LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles,
     DWORD dwCreationFlags, LPVOID lpEnvironment, LPCWSTR lpCurrentDirectory,
     LPSTARTUPINFOW lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation) {
+  WCHAR patched_cmdline[1024];
+  BOOL is_wallpaperui =
+      (lpApplicationName &&
+       wide_contains_ci(lpApplicationName, L"wallpaperui.exe")) ||
+      (lpCommandLine && wide_contains_ci(lpCommandLine, L"wallpaperui.exe"));
+  if (is_wallpaperui && lpCommandLine) {
+    char scale[32];
+    DWORD scale_len =
+        GetEnvironmentVariableA("WALLPIPER_UI_SCALE_FACTOR", scale, sizeof(scale));
+    if (scale_len > 0 && scale_len < sizeof(scale)) {
+      wsprintfW(patched_cmdline, L"%s --force-device-scale-factor=%hs",
+                lpCommandLine, scale);
+      lpCommandLine = patched_cmdline;
+    }
+  }
+
   BOOL ok = real_CreateProcessW
                 ? real_CreateProcessW(lpApplicationName, lpCommandLine,
                                       lpProcessAttributes, lpThreadAttributes,
