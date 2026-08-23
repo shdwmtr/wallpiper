@@ -4,12 +4,13 @@ An ~100kb native translation layer for Wallpaper Engine on GNU/Linux based compo
 
 ## Dependencies
 
-* GNU Make
-* A C99 Compiler
-* Valve's Proton (>= v11.0 was tested working)
+* make
+* c99 compiler
+* proton (>= v11.0 was tested working)
 * dbus
-* Vulkan headers and loader
-* fontconfig
+* vulkan-headers
+* vulkan-icd-loader
+* fontconfig (optional: for local-font overrides)
 
 On Arch Linux:
 
@@ -180,19 +181,8 @@ $ pacman -S libxcb
 $ make build-i3
 ```
 
-## Usage
-
+## Environment Variables 
 `wallpiperd` has no persistent configuration, all variability is mutable through environment variables. 
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `WALLPIPER_PORTAL` | *(required)* | Which portal to use: `hyprland`, `sway`, `i3`, `gnome`, `kde` |
-| `WALLPIPER_STATE_FILE` | *(required)* | Full path of the file to persist the selected wallpaper to (created if missing) |
-| `WALLPIPER_STEAM_ROOT` | auto-detected (`~/.local/share/Steam`, `~/.steam/steam`, `~/.steam/root`, or the Flatpak path) | Your Steam library root |
-| `WALLPIPER_PROTON_BIN` | auto-detected under `compatibilitytools.d/*/proton` or `steamapps/common/Proton */proton` | Path to the `proton` binary to run Wallpaper Engine with |
-| `WALLPIPER_WE_EXE` | `$STEAM_ROOT/steamapps/common/`<br>`wallpaper_engine/wallpaper64.exe` | Path to Wallpaper Engine's executable |
-| `WALLPIPER_TEMP_DIR` | `/tmp/wallpiper` | Directory used for ephemeral, session-scoped files (control sockets, the Vulkan capture layer's search path, tracked renderer PIDs) |
-| `WALLPIPER_RUNTIME_DIR` | `$XDG_STATE_HOME/wallpiper`, or `~/.local/state/wallpiper` | Directory used for state that should persist across reboots (e.g. the applied-DPI marker) |
 
 ```sh
 # Check what it resolved before launching for real
@@ -201,6 +191,35 @@ $ ./target/release/wallpiperctl check-config
 # Example on hyprland
 $ WALLPIPER_PORTAL=hyprland ./target/release/wallpiperd
 ```
+
+#### `WALLPIPER_PORTAL` (required)
+  Which portal to use: `hyprland`, `sway`, `i3`, `gnome`, `kde`
+
+#### `WALLPIPER_STEAM_ROOT`
+  **Default:** auto-detected (`~/.local/share/Steam`, `~/.steam/steam`, `~/.steam/root`, or the Flatpak path)
+
+  Your Steam library root
+
+#### `WALLPIPER_PROTON_BIN`
+  **Default:** auto-detected under `compatibilitytools.d/*/proton` or `steamapps/common/Proton */proton`
+
+  Path to the `proton` binary to run Wallpaper Engine with
+
+#### `WALLPIPER_WE_EXE`
+  **Default:** `$STEAM_ROOT/steamapps/common/wallpaper_engine/wallpaper64.exe`
+
+  Path to Wallpaper Engine's executable
+
+#### `WALLPIPER_TEMP_DIR`
+  **Default:** `/tmp/wallpiper`
+
+  Directory used for ephemeral, session-scoped files (control sockets, the Vulkan capture layer's search path, tracked renderer PIDs)
+
+#### `WALLPIPER_RUNTIME_DIR`
+  **Default:** `$XDG_STATE_HOME/wallpiper`, or `~/.local/state/wallpiper`
+
+  Directory used for state that should persist across reboots (e.g. the applied-DPI marker)
+
 
 ## Command API
 
