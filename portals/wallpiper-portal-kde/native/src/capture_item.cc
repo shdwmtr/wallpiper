@@ -514,11 +514,10 @@ QSGNode *WallpaperCaptureItem::updatePaintNode(QSGNode *oldNode,
         m_importer.refreshBinding(it->second.import);
         if (auto *ctx = QOpenGLContext::currentContext()) {
           auto *gl = ctx->extraFunctions();
-          blitExternalOesToTexture2D(gl, m_blitProgram,
-                                     it->second.import.texture,
-                                     it->second.blitFbo,
-                                     static_cast<int>(it->second.width),
-                                     static_cast<int>(it->second.height));
+          blitExternalOesToTexture2D(
+              gl, m_blitProgram, it->second.import.texture, it->second.blitFbo,
+              static_cast<int>(it->second.width),
+              static_cast<int>(it->second.height));
         }
       }
       texture = it->second.sgTexture.get();

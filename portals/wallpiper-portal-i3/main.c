@@ -291,10 +291,9 @@ static void refresh_buffer(wp_i3_state_t *state, wp_i3_output_t *out) {
     if (overlay_y < 0) {
       overlay_y = 0;
     }
-    xcb_put_image(state->conn, XCB_IMAGE_FORMAT_Z_PIXMAP, out->window,
-                  out->gc, WP_DEBUG_OVERLAY_WIDTH, WP_DEBUG_OVERLAY_HEIGHT,
-                  12, (int16_t)overlay_y, 0, state->depth, sizeof(pixels),
-                  pixels);
+    xcb_put_image(state->conn, XCB_IMAGE_FORMAT_Z_PIXMAP, out->window, out->gc,
+                  WP_DEBUG_OVERLAY_WIDTH, WP_DEBUG_OVERLAY_HEIGHT, 12,
+                  (int16_t)overlay_y, 0, state->depth, sizeof(pixels), pixels);
     xcb_flush(state->conn);
   }
 }
@@ -378,9 +377,9 @@ static wp_i3_output_t *claim_output_for_size(wp_i3_state_t *state,
   return best;
 }
 
-static void handle_buf(wp_i3_state_t *state, uint32_t wire_slot,
-                       uint32_t width, uint32_t height, uint32_t stride,
-                       uint64_t modifier, int fd) {
+static void handle_buf(wp_i3_state_t *state, uint32_t wire_slot, uint32_t width,
+                       uint32_t height, uint32_t stride, uint64_t modifier,
+                       int fd) {
   uint32_t channel = wire_slot / WP_I3_CAPTURE_SLOT_COUNT;
   uint32_t local_idx = wire_slot % WP_I3_CAPTURE_SLOT_COUNT;
   if (channel >= WP_I3_MAX_CAPTURE_CHANNELS) {
@@ -691,8 +690,8 @@ int main(void) {
     xcb_map_window(state.conn, out->window);
 
     uint32_t stack_value_list[1] = {XCB_STACK_MODE_BELOW};
-    xcb_configure_window(state.conn, out->window,
-                         XCB_CONFIG_WINDOW_STACK_MODE, stack_value_list);
+    xcb_configure_window(state.conn, out->window, XCB_CONFIG_WINDOW_STACK_MODE,
+                         stack_value_list);
 
     out->gc = xcb_generate_id(state.conn);
     xcb_create_gc(state.conn, out->gc, out->window, 0, NULL);

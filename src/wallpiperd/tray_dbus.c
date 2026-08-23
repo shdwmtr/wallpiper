@@ -565,8 +565,8 @@ static void build_menu_node(DBusMessageIter *parent_iter,
       DBusMessageIter variant_iter;
       dbus_message_iter_open_container(&children_iter, DBUS_TYPE_VARIANT,
                                        "(ia{sv}av)", &variant_iter);
-      build_menu_node(&variant_iter, entries, child, entry_display_id(i),
-                      i + 1, child_depth + 1, next_remaining);
+      build_menu_node(&variant_iter, entries, child, entry_display_id(i), i + 1,
+                      child_depth + 1, next_remaining);
       dbus_message_iter_close_container(&children_iter, &variant_iter);
 
       int run = children_run_length(entries, i + 1, child_depth + 1);
@@ -689,7 +689,8 @@ static DBusHandlerResult handle_menu_event(DBusConnection *conn,
     pthread_mutex_unlock(&g_state.mutex);
 
     int idx = find_index_by_id(&entries, id);
-    if (idx >= 0 && !(entries.entries[idx].type_flags & WP_TRAY_MFT_SEPARATOR)) {
+    if (idx >= 0 &&
+        !(entries.entries[idx].type_flags & WP_TRAY_MFT_SEPARATOR)) {
       wp_tray_debug_log("event: clicked dbus_id=%d -> win32_id=%u", id,
                         entries.entries[idx].id);
       wp_tray_send_menu_command(entries.entries[idx].id);
@@ -719,7 +720,7 @@ static DBusHandlerResult handle_menu_about_to_show(DBusConnection *conn,
 }
 
 static DBusHandlerResult handle_menu_about_to_show_group(DBusConnection *conn,
-                                                          DBusMessage *msg) {
+                                                         DBusMessage *msg) {
   DBusMessageIter arg_iter;
   dbus_message_iter_init(msg, &arg_iter);
   DBusMessageIter ids_iter;
@@ -728,7 +729,7 @@ static DBusHandlerResult handle_menu_about_to_show_group(DBusConnection *conn,
   dbus_int32_t ids[WP_TRAY_MAX_ENTRIES];
   size_t id_count = 0;
   while (dbus_message_iter_get_arg_type(&ids_iter) == DBUS_TYPE_INT32 &&
-        id_count < WP_TRAY_MAX_ENTRIES) {
+         id_count < WP_TRAY_MAX_ENTRIES) {
     dbus_message_iter_get_basic(&ids_iter, &ids[id_count]);
     id_count++;
     dbus_message_iter_next(&ids_iter);
@@ -758,7 +759,7 @@ static DBusHandlerResult handle_menu_about_to_show_group(DBusConnection *conn,
 }
 
 static DBusHandlerResult handle_menu_event_group(DBusConnection *conn,
-                                                  DBusMessage *msg) {
+                                                 DBusMessage *msg) {
   pthread_mutex_lock(&g_state.mutex);
   wp_tray_entries_t entries = g_state.entries;
   pthread_mutex_unlock(&g_state.mutex);
@@ -812,7 +813,7 @@ static DBusHandlerResult handle_menu_event_group(DBusConnection *conn,
 }
 
 static DBusHandlerResult handle_menu_get_property(DBusConnection *conn,
-                                                   DBusMessage *msg) {
+                                                  DBusMessage *msg) {
   DBusMessage *reply = dbus_message_new_method_return(msg);
   DBusMessageIter iter;
   dbus_message_iter_init_append(reply, &iter);
@@ -1144,7 +1145,8 @@ static bool refresh_menu_from_win32(void) {
       if (g_state.generation != settled_generation) {
         settled_generation = g_state.generation;
         clock_gettime(CLOCK_REALTIME, &quiet_deadline);
-        quiet_deadline = timespec_add_ms(quiet_deadline, MENU_REFRESH_SETTLE_MS);
+        quiet_deadline =
+            timespec_add_ms(quiet_deadline, MENU_REFRESH_SETTLE_MS);
         continue;
       }
       if (rc != 0) {
@@ -1271,8 +1273,8 @@ void wp_tray_spawn(void) {
   wp_tray_files_spawn_watchers();
 
   pthread_t announce_thread;
-  if (pthread_create(&announce_thread, NULL, tray_announce_thread_main,
-                     NULL) == 0) {
+  if (pthread_create(&announce_thread, NULL, tray_announce_thread_main, NULL) ==
+      0) {
     pthread_detach(announce_thread);
   }
 }

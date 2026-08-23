@@ -33,6 +33,7 @@ Targets:
   install-kde          install the KDE plugin
   install-wallpiperd   build-core and install daemon/ctl/layers to ~/.local
   compile-commands     regenerate compile_commands.json
+  fmt                  clang-format all first-party C/C++ sources in place
   clean                remove target/
 EOF
 }
@@ -119,6 +120,16 @@ clean() {
     rm -rf target
 }
 
+fmt() {
+    local files=()
+    while IFS= read -r -d '' f; do
+        files+=("$f")
+    done < <(find . \( -path ./vendor -o -path ./target -o -path ./.git \) -prune -o \
+        \( -name '*.c' -o -name '*.h' -o -name '*.cc' -o -name '*.cpp' -o -name '*.cxx' -o -name '*.hpp' -o -name '*.hh' \) -print0)
+    [ "${#files[@]}" -eq 0 ] && return 0
+    clang-format -i "${files[@]}"
+}
+
 run_target() {
     case "$1" in
         help) usage ;;
@@ -141,6 +152,7 @@ run_target() {
         install-kde) install_kde ;;
         install-wallpiperd) install_wallpiperd ;;
         compile-commands) compile_commands ;;
+        fmt) fmt ;;
         clean) clean ;;
         *)
             echo "unknown target: $1" >&2

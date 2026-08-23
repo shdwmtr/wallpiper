@@ -61,4 +61,3 @@ bool wp_runtime_dir(char *out, size_t out_len) {
   }
   return fmt_ok(out, out_len, "%s/.local/state/wallpiper", home);
 }
-
