@@ -22,11 +22,9 @@
  */
 
 #include "dwm_exports.h"
-#include "ipc.h"
 #include "progman.h"
 #include "util.h"
 #include "win32/imports.h"
-#include "win32/windows.h"
 
 #ifdef __TINYC__
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved);

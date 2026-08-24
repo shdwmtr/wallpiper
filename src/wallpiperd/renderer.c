@@ -225,16 +225,6 @@ void wp_renderer_spawn(wp_monitor_geometry_t monitor) {
     }
     setenv("VK_INSTANCE_LAYERS", WP_VK_CAPTURE_LAYER_NAME, 1);
 
-    char num[32];
-    snprintf(num, sizeof(num), "%d", monitor.x);
-    setenv("WALLPIPER_MONITOR_X", num, 1);
-    snprintf(num, sizeof(num), "%d", monitor.y);
-    setenv("WALLPIPER_MONITOR_Y", num, 1);
-    snprintf(num, sizeof(num), "%u", monitor.width);
-    setenv("WALLPIPER_MONITOR_WIDTH", num, 1);
-    snprintf(num, sizeof(num), "%u", monitor.height);
-    setenv("WALLPIPER_MONITOR_HEIGHT", num, 1);
-
     char portal_name[64];
     char perr[256];
     if (wp_portal_name(portal_name, sizeof(portal_name), perr, sizeof(perr))) {
