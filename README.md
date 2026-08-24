@@ -21,13 +21,14 @@ $ WALLPIPER_PORTAL=portal WALLPIPER_*... wallpiperd
 
 ## Dependencies
 
-* make
-* c99 compiler
+* wallpaper-engine
 * proton (>= v11.0 was tested working)
-* dbus
+* fontconfig (optional: for local-font overrides)
 * vulkan-headers
 * vulkan-icd-loader
-* fontconfig (optional: for local-font overrides)
+* make
+* dbus
+* c99 compiler
 
 On Arch Linux:
 
