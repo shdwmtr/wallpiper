@@ -9,7 +9,7 @@ If you find this utility/tool useful, please consider giving it a star ⭐
 
 ## Usage
 
-> Wallpiper is NOT installed to `PATH` automatically. All binaries live at `./target/release` relative to the repository root. 
+> When built from source, wallpiper is NOT installed to `PATH` automatically. All binaries live at `./target/release` relative to the repository root. 
 
 ```sh
 # check config
