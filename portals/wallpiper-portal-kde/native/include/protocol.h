@@ -98,6 +98,7 @@ enum class CtlRequest {
   DebugOn,
   DebugOff,
   CursorPos,
+  Ping,
 };
 
 std::optional<CtlRequest> parseCtlRequest(const std::string &line);

@@ -42,6 +42,7 @@ bool wp_we_config_path(char *out, size_t out_len, char *err_out,
 bool wp_we_exe(char *out, size_t out_len, char *err_out, size_t err_out_len);
 bool wp_proton_bin(char *out, size_t out_len, char *err_out,
                    size_t err_out_len);
+bool wp_wine_bin(char *out, size_t out_len, char *err_out, size_t err_out_len);
 bool wp_portal_name(char *out, size_t out_len, char *err_out,
                     size_t err_out_len);
 

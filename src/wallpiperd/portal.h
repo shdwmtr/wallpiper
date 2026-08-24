@@ -41,8 +41,8 @@ typedef struct {
 
 void wp_portal_spawn_strategy(const char *name, wp_portal_strategy_t *out);
 void wp_portal_spawn(const wp_portal_strategy_t *strategy);
-void wp_portal_spawn_geometry_watcher(const char *name, bool patient);
-bool wp_portal_wait_for_geometry(wp_monitor_geometry_t *out);
+void wp_portal_spawn_readiness_watcher(const char *name, bool patient);
+void wp_portal_wait_ready(void);
 bool wp_portal_current_monitor(wp_monitor_geometry_t *out);
 bool wp_portal_query_monitor_once(const char *name, wp_monitor_geometry_t *out);
 bool wp_portal_detach_display(void);

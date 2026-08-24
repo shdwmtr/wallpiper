@@ -265,20 +265,32 @@ $ make build-i3
 
   Directory used for state that should persist across reboots (e.g. the applied-DPI marker)
 
+#### `WALLPIPER_WE_UI_SCALE_FACTOR`
+  **Default:** unset (no scaling override)
+
+  Forces N scale factor on Wallpaper Engines properties-panel process. Not auto-detected.
+
 
 ## Command API
 
-`wallpiperctl` is a control process for the `wallpiperd` daemon. The following commands require `wallpiperd` to be actively running with the same `WALLPIPER_RUNTIME_DIR`.
+`wallpiperctl` is a control process for the `wallpiperd` daemon, and wallpaper-engine. 
 
-```sh
-# In research, not yet implemented:
-# wallpiperctl mute
-# wallpiperctl unmute
-# wallpiperctl volume <0-100>
+```
+usage: wallpiperctl <command>
 
-$ wallpiperctl debug-on
-$ wallpiperctl debug-off
-$ wallpiperctl check-config
+daemon commands (require a running wallpiperd):
+  debug-on | debug-off
+
+wallpaper engine commands:
+  pause | play   | stop
+  next  | prev   | reset
+  mute  | unmute | volume <0-100>
+  set <path|workshop-id> [monitor; int; 0-indexed]
+  prop <path|workshop-id> <name> <value> [monitor; int; 0-indexed]
+  list
+
+standalone commands:
+  check-config
 ```
 
 ## Common Issues

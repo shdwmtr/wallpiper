@@ -63,9 +63,10 @@ static gboolean on_ctl_socket_connectable(gint fd, GIOCondition condition,
   gchar *response;
 
   if (g_strcmp0(line, "GEOMETRY") == 0) {
-    gchar *json = wallpiper_monitor_geometry_to_json(&state->geometry);
-    response = g_strdup_printf("GEOMETRY %s\n", json);
-    g_free(json);
+    // gchar *json = wallpiper_monitor_geometry_to_json(&state->geometry);
+    // response = g_strdup_printf("GEOMETRY %s\n", json);
+    // g_free(json);
+    response = g_strdup("ERR geometry detection disabled\n");
   } else if (g_strcmp0(line, "DETACH") == 0) {
     wallpiper_capture_listener_detach(state);
     response = g_strdup("OK\n");
@@ -110,6 +111,8 @@ static gboolean on_ctl_socket_connectable(gint fd, GIOCondition condition,
       meta_cursor_tracker_get_pointer(tracker, &point, NULL);
     response =
         g_strdup_printf("CURSOR_POS %d %d\n", (int)point.x, (int)point.y);
+  } else if (g_strcmp0(line, "PING") == 0) {
+    response = g_strdup("OK\n");
   } else {
     response = g_strdup_printf("ERR unrecognized command\n");
   }

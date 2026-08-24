@@ -39,7 +39,6 @@ SRCS := \
 	src/progman.c \
 	src/menu.c \
 	src/tray.c \
-	src/ipc.c \
 	src/ipc_triggers.c \
 	src/cursor.c \
 	src/dwm_exports.c \

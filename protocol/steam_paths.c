@@ -276,6 +276,39 @@ bool wp_proton_bin(char *out, size_t out_len, char *err_out,
   return fmt_ok(out, out_len, "%s", candidates[0]);
 }
 
+bool wp_wine_bin(char *out, size_t out_len, char *err_out, size_t err_out_len) {
+  const char *override = getenv("WALLPIPER_WINE_BIN");
+  if (override && override[0] != '\0') {
+    return fmt_ok(out, out_len, "%s", override);
+  }
+
+  char proton[1024];
+  if (!wp_proton_bin(proton, sizeof(proton), err_out, err_out_len)) {
+    return false;
+  }
+
+  char *slash = strrchr(proton, '/');
+  if (!slash) {
+    snprintf(err_out, err_out_len,
+             "could not derive wine binary from proton path %s", proton);
+    return false;
+  }
+  *slash = '\0';
+
+  char path[1024];
+  if (!fmt_ok(path, sizeof(path), "%s/files/bin/wine", proton)) {
+    snprintf(err_out, err_out_len, "proton path too long");
+    return false;
+  }
+  if (!is_regular_file(path)) {
+    snprintf(err_out, err_out_len,
+             "wine binary not found at %s. set WALLPIPER_WINE_BIN to its path",
+             path);
+    return false;
+  }
+  return fmt_ok(out, out_len, "%s", path);
+}
+
 bool wp_portal_name(char *out, size_t out_len, char *err_out,
                     size_t err_out_len) {
   const char *portal = getenv("WALLPIPER_PORTAL");
@@ -345,6 +378,9 @@ void wp_describe(void) {
 
   ok = wp_we_exe(buf, sizeof(buf), err, sizeof(err));
   report("wallpaper engine exe", ok, ok ? buf : err);
+
+  ok = wp_wine_bin(buf, sizeof(buf), err, sizeof(err));
+  report("wine binary", ok, ok ? buf : err);
 
   ok = wp_we_config_path(buf, sizeof(buf), err, sizeof(err));
   report("wallpaper engine config.json", ok, ok ? buf : err);

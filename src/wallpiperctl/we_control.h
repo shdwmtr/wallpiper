@@ -21,12 +21,20 @@
  * SOFTWARE.
  */
 
-#ifndef WP_IPC_H
-#define WP_IPC_H
+#pragma once
 
-#include "win32/windows.h"
+#include <stdbool.h>
+#include <stddef.h>
 
-void install_ipc_core_hooks(void);
-void install_ipc_file_hooks_and_poll(void);
+bool wp_we_send_control(const char *const *control_args,
+                        size_t control_arg_count, char *err_out,
+                        size_t err_out_len);
 
-#endif
+bool wp_we_set_wallpaper(const char *target, const char *monitor,
+                         char *err_out, size_t err_out_len);
+
+bool wp_we_set_property(const char *target, const char *name,
+                        const char *value, const char *monitor,
+                        char *err_out, size_t err_out_len);
+
+bool wp_we_list_wallpapers(char *err_out, size_t err_out_len);

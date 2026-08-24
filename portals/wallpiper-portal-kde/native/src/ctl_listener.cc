@@ -179,6 +179,9 @@ void CtlListener::handleConnection(int clientFd) {
     break;
   case WallpiperProtocol::CtlRequest::CursorPos:
     break;
+  case WallpiperProtocol::CtlRequest::Ping:
+    response = WallpiperProtocol::CtlResponseOk{};
+    break;
   }
   writeResponse(response);
 }

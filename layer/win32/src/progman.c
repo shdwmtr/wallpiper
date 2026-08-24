@@ -106,7 +106,7 @@ void install_progman_hook(void) {
   }
 
   FARPROC orig = patch_iat(GetModuleHandleW(NULL), "USER32.dll", "FindWindowW",
-                           (FARPROC)fake_FindWindowW);
+                           (FARPROC)(void *)fake_FindWindowW);
   real_FindWindowW = (FindWindowW_t)(void *)orig;
   debug_log(orig ? "install_progman_hook: patch_iat FindWindowW OK"
                  : "install_progman_hook: patch_iat FindWindowW NOT FOUND");

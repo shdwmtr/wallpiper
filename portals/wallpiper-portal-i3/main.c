@@ -601,8 +601,11 @@ static void handle_ctl_request(wp_i3_state_t *state, wp_ctl_request_t request,
 
   switch (request) {
   case WP_CTL_REQUEST_GEOMETRY:
-    response.tag = WP_CTL_RESPONSE_GEOMETRY;
-    response.geometry = state->geometry;
+    // response.tag = WP_CTL_RESPONSE_GEOMETRY;
+    // response.geometry = state->geometry;
+    response.tag = WP_CTL_RESPONSE_ERR;
+    snprintf(response.err, sizeof(response.err), "%s",
+            "geometry detection disabled");
     break;
   case WP_CTL_REQUEST_DETACH:
     detach(state);
@@ -620,6 +623,9 @@ static void handle_ctl_request(wp_i3_state_t *state, wp_ctl_request_t request,
     response.tag = WP_CTL_RESPONSE_ERR;
     snprintf(response.err, sizeof(response.err), "%s",
              "handled by ctl listener");
+    break;
+  case WP_CTL_REQUEST_PING:
+    response.tag = WP_CTL_RESPONSE_OK;
     break;
   default:
     response.tag = WP_CTL_RESPONSE_ERR;
@@ -639,17 +645,15 @@ int main(void) {
   wp_debug_throttle_init(&state.debug_throttle);
 
   detect_outputs(&state);
-  wp_i3_output_t *primary = &state.outputs[0];
-  state.geometry.x = primary->x;
-  state.geometry.y = primary->y;
-  state.geometry.width = primary->width;
-  state.geometry.height = primary->height;
-  state.geometry.logical_width = primary->width;
-  state.geometry.logical_height = primary->height;
-  state.geometry.scale = 1.0;
-  printf("detected %zu output(s), primary geometry: x=%d y=%d %ux%u\n",
-         state.output_count, state.geometry.x, state.geometry.y,
-         state.geometry.width, state.geometry.height);
+  // wp_i3_output_t *primary = &state.outputs[0];
+  // state.geometry.x = primary->x;
+  // state.geometry.y = primary->y;
+  // state.geometry.width = primary->width;
+  // state.geometry.height = primary->height;
+  // state.geometry.logical_width = primary->width;
+  // state.geometry.logical_height = primary->height;
+  // state.geometry.scale = 1.0;
+  printf("detected %zu output(s)\n", state.output_count);
 
   int screen_num = 0;
   state.conn = xcb_connect(NULL, &screen_num);

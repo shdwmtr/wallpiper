@@ -149,10 +149,8 @@ static bool discover_new_renderer_pid(const wp_pid_list_t *pre_spawn,
   return false;
 }
 
-void wp_renderer_spawn(wp_monitor_geometry_t monitor) {
-  printf("spawning renderer: (wallpaper selection is Wallpaper Engine's own) "
-         "%ux%u scale=%g\n",
-         monitor.width, monitor.height, monitor.scale);
+void wp_renderer_spawn(void) {
+  printf("spawning wallpaper-engine...\n");
 
   wp_pid_list_t old_wrappers;
   wp_find_proton_wrapper_pids(&old_wrappers);
@@ -225,31 +223,12 @@ void wp_renderer_spawn(wp_monitor_geometry_t monitor) {
     }
     setenv("VK_INSTANCE_LAYERS", WP_VK_CAPTURE_LAYER_NAME, 1);
 
-    char num[32];
-    snprintf(num, sizeof(num), "%d", monitor.x);
-    setenv("WALLPIPER_MONITOR_X", num, 1);
-    snprintf(num, sizeof(num), "%d", monitor.y);
-    setenv("WALLPIPER_MONITOR_Y", num, 1);
-    snprintf(num, sizeof(num), "%u", monitor.width);
-    setenv("WALLPIPER_MONITOR_WIDTH", num, 1);
-    snprintf(num, sizeof(num), "%u", monitor.height);
-    setenv("WALLPIPER_MONITOR_HEIGHT", num, 1);
-
     char portal_name[64];
     char perr[256];
     if (wp_portal_name(portal_name, sizeof(portal_name), perr, sizeof(perr))) {
       char ctl_socket[256];
       if (wp_ctl_socket_path(portal_name, ctl_socket, sizeof(ctl_socket))) {
         setenv("WALLPIPER_PORTAL_CTL_SOCKET", ctl_socket, 1);
-      }
-
-      /* GNOME and KDE composite the embedded window at the correct DPI
-       * themselves, manually tested. */
-      if (strcmp(portal_name, "gnome") != 0 &&
-          strcmp(portal_name, "kde") != 0) {
-        char scale_str[32];
-        snprintf(scale_str, sizeof(scale_str), "%g", monitor.scale);
-        setenv("WALLPIPER_UI_SCALE_FACTOR", scale_str, 1);
       }
     }
 
@@ -321,10 +300,10 @@ void wp_renderer_spawn(wp_monitor_geometry_t monitor) {
   write_tracked_renderer_pids(&pending_renderers);
 }
 
-void wp_renderer_swap(wp_monitor_geometry_t monitor) {
+void wp_renderer_swap(void) {
   wp_pid_list_t existing;
   wp_find_renderer_pids(&existing);
   if (existing.count == 0) {
-    wp_renderer_spawn(monitor);
+    wp_renderer_spawn();
   }
 }
