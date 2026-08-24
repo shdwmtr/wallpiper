@@ -1,3 +1,15 @@
+# [1.1.0](https://github.com/shdwmtr/wallpiper/compare/v1.0.0...v1.1.0) (2026-08-24)
+
+
+### Features
+
+* **wallpiperctl:** proper CLI support, check README for documentation. Closes [#9](https://github.com/shdwmtr/wallpiper/issues/9) ([ca3810d](https://github.com/shdwmtr/wallpiper/commit/ca3810d41dc6cd41845699a27e566fa9fea37cb5))
+
+
+### Performance Improvements
+
+* remove redundant portal side monitor geometry setup ([81990f5](https://github.com/shdwmtr/wallpiper/commit/81990f513a6abaea9b0d6737d8438c202c8f9bc2))
+
 # 1.0.0 (2026-08-24)
 
 
