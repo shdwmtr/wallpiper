@@ -129,15 +129,32 @@ jobs:
 
           [ "$MISSING" -eq 0 ] || { echo "ERROR: one or more required files missing from package"; exit 1; }
 
-  publish-aur:
+  publish-core:
     needs: test-pkgbuild
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == true }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Publish wallpiper-git
+        uses: KSXGitHub/github-actions-deploy-aur@master
+        with:
+          pkgname: wallpiper-git
+          pkgbuild: ./packages/arch/wallpiper-git/PKGBUILD
+          commit_username: GitHub Actions
+          commit_email: github-actions@github.com
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: Update AUR package
+          ssh_keyscan_types: rsa,ecdsa,ed25519
+
+  publish-portals:
+    needs: publish-core
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
-          - pkg: wallpiper-git
-            assets: ""
           - pkg: wallpiper-hyprland-git
             assets: ""
           - pkg: wallpiper-sway-git
