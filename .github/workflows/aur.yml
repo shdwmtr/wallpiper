@@ -7,19 +7,6 @@ on:
         description: "Publish to AUR?"
         type: boolean
         default: false
-  push:
-    branches: [main]
-    paths:
-      - "packages/arch/**"
-      - "**/Makefile"
-      - "**/CMakeLists.txt"
-      - ".github/workflows/aur.yml"
-  pull_request:
-    paths:
-      - "packages/arch/**"
-      - "**/Makefile"
-      - "**/CMakeLists.txt"
-      - ".github/workflows/aur.yml"
 
 jobs:
   test-pkgbuild:
