@@ -1,24 +1,17 @@
 # Maintainer: Ethan Alexander <ethanjalexander@hotmail.ca>
 
-pkgname="wallpiper-gnome-git"
-pkgver=r0.0000000
+pkgname="wallpiper-gnome"
+pkgver=1.0.0
 pkgrel=1
 pkgdesc="GNOME (Mutter) portal for wallpiper"
 arch=('x86_64')
 url="https://github.com/shdwmtr/wallpiper"
 license=('MIT')
-depends=('wallpiper-git' 'mutter' 'gobject-introspection' 'gnome-shell' 'mesa' 'libdrm' 'libxrandr' 'libx11')
-provides=('wallpiper-gnome')
-conflicts=('wallpiper-gnome')
+depends=('wallpiper' 'mutter' 'gobject-introspection' 'gnome-shell' 'mesa' 'libdrm' 'libxrandr' 'libx11')
 makedepends=('git' 'mutter' 'gobject-introspection' 'mesa' 'libdrm' 'libxrandr' 'libx11')
-install="wallpiper-gnome-git.install"
-source=("$pkgname::git+$url.git")
+install="wallpiper-gnome.install"
+source=("$pkgname::git+$url.git#tag=v$pkgver")
 sha256sums=('SKIP')
-
-pkgver() {
-    cd "$srcdir/$pkgname"
-    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
-}
 
 build() {
     cd "$srcdir/$pkgname"

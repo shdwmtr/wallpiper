@@ -5,9 +5,15 @@
     "@semantic-release/release-notes-generator",
     "@semantic-release/changelog",
     [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "sed -i \"s/^pkgver=.*/pkgver=${nextRelease.version}/\" packages/arch/*/PKGBUILD"
+      }
+    ],
+    [
       "@semantic-release/git",
       {
-        "assets": ["CHANGELOG.md"],
+        "assets": ["CHANGELOG.md", "packages/arch/*/PKGBUILD"],
         "message": "chore(release): ${nextRelease.version} [skip ci]"
       }
     ],

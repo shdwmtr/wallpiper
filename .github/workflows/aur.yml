@@ -21,26 +21,25 @@ on:
       - "**/CMakeLists.txt"
       - ".github/workflows/aur.yml"
 
-concurrency:
-  group: aur-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   test-pkgbuild:
     runs-on: ubuntu-latest
     container:
       image: archlinux:base-devel
+    concurrency:
+      group: aur-test-${{ matrix.pkg }}-${{ github.ref }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
         pkg:
-          - wallpiper-git
-          - wallpiper-hyprland-git
-          - wallpiper-sway-git
-          - wallpiper-cosmic-git
-          - wallpiper-i3-git
-          - wallpiper-gnome-git
-          - wallpiper-kde-git
+          - wallpiper
+          - wallpiper-hyprland
+          - wallpiper-sway
+          - wallpiper-cosmic
+          - wallpiper-i3
+          - wallpiper-gnome
+          - wallpiper-kde
 
     steps:
       - name: Setup pacman
@@ -53,17 +52,19 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Build and install wallpiper-git
-        if: matrix.pkg != 'wallpiper-git'
+      - name: Build and install wallpiper
+        if: matrix.pkg != 'wallpiper'
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          cp -r "packages/arch/wallpiper-git" /home/builder/core
+          cp -r "packages/arch/wallpiper" /home/builder/core
 
           sed -i "s#git+\$url.git#git+file://$GITHUB_WORKSPACE#" /home/builder/core/PKGBUILD
           chown -R builder:builder /home/builder/core
           su builder -c 'cd /home/builder/core && makepkg -s --noconfirm'
-          corepkg=$(ls /home/builder/core/wallpiper-git-*.pkg.tar.zst | grep -v -- '-debug-')
+          corepkg=$(ls /home/builder/core/wallpiper-*.pkg.tar.zst | grep -v -- '-debug-')
           pacman -U --noconfirm "$corepkg"
 
       - name: Build package
@@ -95,7 +96,7 @@ jobs:
           }
 
           case "${{ matrix.pkg }}" in
-            wallpiper-git)
+            wallpiper)
               check usr/lib/wallpiper/wallpiperd
               check usr/lib/wallpiper/wallpiperctl
               check usr/lib/wallpiper/libwallpiper-preload.so
@@ -104,24 +105,24 @@ jobs:
               check usr/bin/wallpiperd
               check usr/bin/wallpiperctl
               ;;
-            wallpiper-hyprland-git)
+            wallpiper-hyprland)
               check usr/lib/wallpiper/wallpiper-portal-hyprland
               ;;
-            wallpiper-sway-git)
+            wallpiper-sway)
               check usr/lib/wallpiper/wallpiper-portal-sway
               ;;
-            wallpiper-cosmic-git)
+            wallpiper-cosmic)
               check usr/lib/wallpiper/wallpiper-portal-cosmic
               ;;
-            wallpiper-i3-git)
+            wallpiper-i3)
               check usr/lib/wallpiper/wallpiper-portal-i3
               ;;
-            wallpiper-gnome-git)
+            wallpiper-gnome)
               check usr/lib/libwallpiper-1.0.so
               check usr/lib/girepository-1.0/Wallpiper-1.0.typelib
               check "usr/share/gnome-shell/extensions/wallpiper-gnome@wallpiper.dev/metadata.json"
               ;;
-            wallpiper-kde-git)
+            wallpiper-kde)
               check usr/lib/qt6/qml/dev/wallpiper/capture/libwallpiper_capture_plugin.so
               check usr/share/plasma/wallpapers/dev.wallpiper.kde/metadata.json
               ;;
@@ -133,16 +134,19 @@ jobs:
     needs: test-pkgbuild
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == true }}
+    concurrency:
+      group: aur-publish-core-${{ github.ref }}
+      cancel-in-progress: false
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Publish wallpiper-git
+      - name: Publish wallpiper
         uses: KSXGitHub/github-actions-deploy-aur@master
         with:
-          pkgname: wallpiper-git
-          pkgbuild: ./packages/arch/wallpiper-git/PKGBUILD
+          pkgname: wallpiper
+          pkgbuild: ./packages/arch/wallpiper/PKGBUILD
           commit_username: GitHub Actions
           commit_email: github-actions@github.com
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
@@ -152,21 +156,24 @@ jobs:
   publish-portals:
     needs: publish-core
     runs-on: ubuntu-latest
+    concurrency:
+      group: aur-publish-portals-${{ matrix.pkg }}-${{ github.ref }}
+      cancel-in-progress: false
     strategy:
       matrix:
         include:
-          - pkg: wallpiper-hyprland-git
+          - pkg: wallpiper-hyprland
             assets: ""
-          - pkg: wallpiper-sway-git
+          - pkg: wallpiper-sway
             assets: ""
-          - pkg: wallpiper-cosmic-git
+          - pkg: wallpiper-cosmic
             assets: ""
-          - pkg: wallpiper-i3-git
+          - pkg: wallpiper-i3
             assets: ""
-          - pkg: wallpiper-gnome-git
-            assets: "./packages/arch/wallpiper-gnome-git/wallpiper-gnome-git.install"
-          - pkg: wallpiper-kde-git
-            assets: "./packages/arch/wallpiper-kde-git/wallpiper-kde-git.install"
+          - pkg: wallpiper-gnome
+            assets: "./packages/arch/wallpiper-gnome/wallpiper-gnome.install"
+          - pkg: wallpiper-kde
+            assets: "./packages/arch/wallpiper-kde/wallpiper-kde.install"
 
     steps:
       - name: Checkout repository

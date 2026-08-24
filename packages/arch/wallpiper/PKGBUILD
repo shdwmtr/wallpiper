@@ -1,7 +1,7 @@
 # Maintainer: Ethan Alexander <ethanjalexander@hotmail.ca>
 
-pkgname="wallpiper-git"
-pkgver=r0.0000000
+pkgname="wallpiper"
+pkgver=1.0.0
 pkgrel=1
 pkgdesc="Native translation layer for Wallpaper Engine on Linux"
 arch=('x86_64')
@@ -10,22 +10,15 @@ license=('MIT')
 depends=('dbus')
 optdepends=('fontconfig: local font overrides for Wallpaper Engine content'
             'proton: required to run wallpaper64.exe under Wallpaper Engine'
-            'wallpiper-gnome-git: GNOME (Mutter) portal'
-            'wallpiper-kde-git: KDE Plasma portal'
-            'wallpiper-hyprland-git: Hyprland portal'
-            'wallpiper-sway-git: Sway portal'
-            'wallpiper-cosmic-git: COSMIC portal'
-            'wallpiper-i3-git: i3wm portal')
-provides=('wallpiper')
-conflicts=('wallpiper')
+            'wallpiper-gnome: GNOME (Mutter) portal'
+            'wallpiper-kde: KDE Plasma portal'
+            'wallpiper-hyprland: Hyprland portal'
+            'wallpiper-sway: Sway portal'
+            'wallpiper-cosmic: COSMIC portal'
+            'wallpiper-i3: i3wm portal')
 makedepends=('git' 'dbus' 'vulkan-headers')
-source=("$pkgname::git+$url.git")
+source=("$pkgname::git+$url.git#tag=v$pkgver")
 sha256sums=('SKIP')
-
-pkgver() {
-    cd "$srcdir/$pkgname"
-    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
-}
 
 build() {
     cd "$srcdir/$pkgname"

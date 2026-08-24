@@ -32,5 +32,6 @@ jobs:
           npx --yes
           -p semantic-release@24.2.9
           -p @semantic-release/changelog@6.0.3
+          -p @semantic-release/exec@7.1.0
           -p @semantic-release/git@10.0.1
           semantic-release

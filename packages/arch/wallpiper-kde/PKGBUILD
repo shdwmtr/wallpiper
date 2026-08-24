@@ -1,24 +1,17 @@
 # Maintainer: Ethan Alexander <ethanjalexander@hotmail.ca>
 
-pkgname="wallpiper-kde-git"
-pkgver=r0.0000000
+pkgname="wallpiper-kde"
+pkgver=1.0.0
 pkgrel=1
 pkgdesc="KDE Plasma 6 portal for wallpiper"
 arch=('x86_64')
 url="https://github.com/shdwmtr/wallpiper"
 license=('MIT')
-depends=('wallpiper-git' 'qt6-base' 'qt6-declarative' 'mesa' 'libx11' 'libxrandr')
-provides=('wallpiper-kde')
-conflicts=('wallpiper-kde')
+depends=('wallpiper' 'qt6-base' 'qt6-declarative' 'mesa' 'libx11' 'libxrandr')
 makedepends=('git' 'cmake' 'extra-cmake-modules' 'qt6-base' 'qt6-declarative' 'mesa' 'libx11' 'libxrandr')
-install="wallpiper-kde-git.install"
-source=("$pkgname::git+$url.git")
+install="wallpiper-kde.install"
+source=("$pkgname::git+$url.git#tag=v$pkgver")
 sha256sums=('SKIP')
-
-pkgver() {
-    cd "$srcdir/$pkgname"
-    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
-}
 
 build() {
     cd "$srcdir/$pkgname"

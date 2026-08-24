@@ -1,23 +1,16 @@
 # Maintainer: Ethan Alexander <ethanjalexander@hotmail.ca>
 
-pkgname="wallpiper-hyprland-git"
-pkgver=r0.0000000
+pkgname="wallpiper-hyprland"
+pkgver=1.0.0
 pkgrel=1
 pkgdesc="Hyprland portal for wallpiper"
 arch=('x86_64')
 url="https://github.com/shdwmtr/wallpiper"
 license=('MIT')
-depends=('wallpiper-git' 'wayland')
-provides=('wallpiper-hyprland')
-conflicts=('wallpiper-hyprland')
+depends=('wallpiper' 'wayland')
 makedepends=('git' 'wayland' 'wayland-protocols')
-source=("$pkgname::git+$url.git")
+source=("$pkgname::git+$url.git#tag=v$pkgver")
 sha256sums=('SKIP')
-
-pkgver() {
-    cd "$srcdir/$pkgname"
-    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
-}
 
 build() {
     cd "$srcdir/$pkgname"

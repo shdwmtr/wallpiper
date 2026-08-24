@@ -1,6 +1,6 @@
 post_install() {
     cat <<EOF
-==> wallpiper-gnome-git installed the Wallpiper GNOME Shell extension system-wide.
+==> wallpiper-gnome installed the Wallpiper GNOME Shell extension system-wide.
     Enable it with:
 
         gnome-extensions enable wallpiper-gnome@wallpiper.dev
