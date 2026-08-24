@@ -2,7 +2,7 @@
 
 An 100kb native Wallpaper Engine translation layer for GNU/Linux based compositors, without re-inventing the wheel. Proton does most of the heavy lifting, while wallpiper re-implements/patches niche portions of the PE/COFF Windows API Wallpaper Engine needs. 
 
-Wallpiper then metaphorically "pipes" your wallpaper (using zero-copy [dma-buf](https://docs.kernel.org/driver-api/dma-buf.html) ) from an internal frame buffer to a desktop portal. No overhead. 
+Wallpiper then metaphorically "pipes" your wallpaper (using zero-copy [dma-buf](https://docs.kernel.org/driver-api/dma-buf.html)) from an internal frame buffer to a desktop portal. No overhead. 
 
 If you find this utility/tool useful, please consider giving it a star ⭐
 
