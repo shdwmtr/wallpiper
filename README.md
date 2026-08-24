@@ -41,7 +41,7 @@ $ pacman -S base-devel dbus vulkan-headers vulkan-icd-loader fontconfig
 
 Get it from the [AUR](https://aur.archlinux.org/packages/wallpiper), or compile [manually below](#building). 
 
-## Building 
+## Building from source
 
 ### Wallpiper Core
 
