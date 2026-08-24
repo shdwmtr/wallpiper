@@ -1,4 +1,5 @@
 target/
+node_modules/
 wallpiper-portal-gnome/native/.cache/
 /.cache
 /compile_commands.json
