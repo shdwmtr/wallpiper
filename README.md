@@ -35,7 +35,13 @@ On Arch Linux:
 $ pacman -S base-devel dbus vulkan-headers vulkan-icd-loader fontconfig
 ```
 
-## Installation
+## Packaging
+
+### Arch Linux (AUR)
+
+Get it from the [AUR](https://aur.archlinux.org/packages/wallpiper), or compile [manually below](#building). 
+
+## Building 
 
 ### Wallpiper Core
 
