@@ -265,6 +265,13 @@ $ wallpiperctl debug-off
 $ wallpiperctl check-config
 ```
 
+## Common Issues
+
+### Black Screen/Can't open Wallpaper Engine
+
+Likely an issue with your underling translation layer. Only GE-Proton-11 and Valve-Proton-11 have been tested working. 
+
+All users experiencing this issue fixed it upgrading to a later version of Proton. 
 
 ## Contributing
 
