@@ -54,6 +54,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Build and install wallpiper-git
+        if: matrix.pkg != 'wallpiper-git'
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          cp -r "packages/arch/wallpiper-git" /home/builder/core
+
+          sed -i "s#git+\$url.git#git+file://$GITHUB_WORKSPACE#" /home/builder/core/PKGBUILD
+          chown -R builder:builder /home/builder/core
+          su builder -c 'cd /home/builder/core && makepkg -s --noconfirm'
+          corepkg=$(ls /home/builder/core/wallpiper-git-*.pkg.tar.zst | grep -v -- '-debug-')
+          pacman -U --noconfirm "$corepkg"
+
       - name: Build package
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -69,7 +81,7 @@ jobs:
           ls -lh /home/builder/pkg/*.pkg.tar.zst
 
           mkdir -p /tmp/verify
-          pkgfile=$(ls /home/builder/pkg/${{ matrix.pkg }}-*.pkg.tar.zst)
+          pkgfile=$(ls /home/builder/pkg/${{ matrix.pkg }}-*.pkg.tar.zst | grep -v -- '-debug-')
           tar -xf "$pkgfile" -C /tmp/verify
 
           MISSING=0
