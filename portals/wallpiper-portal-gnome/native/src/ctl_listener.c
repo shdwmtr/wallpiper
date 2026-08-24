@@ -63,9 +63,10 @@ static gboolean on_ctl_socket_connectable(gint fd, GIOCondition condition,
   gchar *response;
 
   if (g_strcmp0(line, "GEOMETRY") == 0) {
-    gchar *json = wallpiper_monitor_geometry_to_json(&state->geometry);
-    response = g_strdup_printf("GEOMETRY %s\n", json);
-    g_free(json);
+    // gchar *json = wallpiper_monitor_geometry_to_json(&state->geometry);
+    // response = g_strdup_printf("GEOMETRY %s\n", json);
+    // g_free(json);
+    response = g_strdup("ERR geometry detection disabled\n");
   } else if (g_strcmp0(line, "DETACH") == 0) {
     wallpiper_capture_listener_detach(state);
     response = g_strdup("OK\n");

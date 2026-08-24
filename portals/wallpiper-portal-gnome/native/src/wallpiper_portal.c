@@ -39,14 +39,14 @@ static void on_monitors_changed(MetaMonitorManager *manager,
                                 gpointer user_data) {
   (void)manager;
   WallpiperPortalState *state = (WallpiperPortalState *)user_data;
-  WallpiperMonitorGeometry geometry =
-      wallpiper_monitor_detect_primary(state->backend);
-  state->geometry = geometry;
+  // WallpiperMonitorGeometry geometry =
+  //     wallpiper_monitor_detect_primary(state->backend);
+  // state->geometry = geometry;
 
-  g_message("wallpiper-gnome: monitor geometry changed %ux%u at (%d,%d), "
-            "logical %ux%u, scale %g",
-            geometry.width, geometry.height, geometry.x, geometry.y,
-            geometry.logical_width, geometry.logical_height, geometry.scale);
+  // g_message("wallpiper-gnome: monitor geometry changed %ux%u at (%d,%d), "
+  //           "logical %ux%u, scale %g",
+  //           geometry.width, geometry.height, geometry.x, geometry.y,
+  //           geometry.logical_width, geometry.logical_height, geometry.scale);
 
   WallpiperMonitorGeometry monitors[WP_MAX_CAPTURE_CHANNELS];
   guint count = 0;
@@ -100,17 +100,17 @@ gboolean wallpiper_portal_start(GObject *backend_obj, GObject *parent_obj,
     return FALSE;
   }
 
-  WallpiperMonitorGeometry geometry = wallpiper_monitor_detect_primary(backend);
-  g_message("wallpiper-gnome: detected monitor geometry %ux%u at (%d,%d), "
-            "logical %ux%u",
-            geometry.width, geometry.height, geometry.x, geometry.y,
-            geometry.logical_width, geometry.logical_height);
+  // WallpiperMonitorGeometry geometry = wallpiper_monitor_detect_primary(backend);
+  // g_message("wallpiper-gnome: detected monitor geometry %ux%u at (%d,%d), "
+  //           "logical %ux%u",
+  //           geometry.width, geometry.height, geometry.x, geometry.y,
+  //           geometry.logical_width, geometry.logical_height);
 
   WallpiperPortalState *state = g_new0(WallpiperPortalState, 1);
   state->backend = backend;
   state->cogl_context = cogl_context;
   state->egl_display = egl_display;
-  state->geometry = geometry;
+  // state->geometry = geometry;
 
   ClutterActor *parent = CLUTTER_ACTOR(parent_obj);
   state->parent = parent;

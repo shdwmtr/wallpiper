@@ -74,8 +74,11 @@ static void handle_ctl_request(wp_wl_state_t *state, wp_ctl_request_t request) {
 
   switch (request) {
   case WP_CTL_REQUEST_GEOMETRY:
-    response.tag = WP_CTL_RESPONSE_GEOMETRY;
-    response.geometry = state->geometry;
+    // response.tag = WP_CTL_RESPONSE_GEOMETRY;
+    // response.geometry = state->geometry;
+    response.tag = WP_CTL_RESPONSE_ERR;
+    snprintf(response.err, sizeof(response.err), "%s",
+            "geometry detection disabled");
     break;
   case WP_CTL_REQUEST_DETACH:
     wp_wl_detach(state);
@@ -113,12 +116,12 @@ void wp_wl_portal_run(const wp_wl_portal_config_t *config) {
   state.stats = wp_frame_stats_create();
   wp_debug_throttle_init(&state.debug_throttle);
 
-  wp_wl_detect_geometry(config->try_geometry, &state.geometry);
-  printf(
-      "detected monitor geometry: x=%d y=%d %ux%u logical=%ux%u scale=%.4f\n",
-      state.geometry.x, state.geometry.y, state.geometry.width,
-      state.geometry.height, state.geometry.logical_width,
-      state.geometry.logical_height, state.geometry.scale);
+  // wp_wl_detect_geometry(config->try_geometry, &state.geometry);
+  // printf(
+  //     "detected monitor geometry: x=%d y=%d %ux%u logical=%ux%u scale=%.4f\n",
+  //     state.geometry.x, state.geometry.y, state.geometry.width,
+  //     state.geometry.height, state.geometry.logical_width,
+  //     state.geometry.logical_height, state.geometry.scale);
 
   state.display = wl_display_connect(NULL);
   if (!state.display) {

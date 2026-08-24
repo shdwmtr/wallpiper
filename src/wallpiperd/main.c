@@ -50,12 +50,12 @@ static bool daemon_command_handler(const char *const *args, size_t arg_count,
 
 static void *geometry_wait_thread_main(void *arg) {
   (void)arg;
-  wp_monitor_geometry_t monitor;
-  wp_portal_wait_for_geometry(&monitor);
-  printf("detected monitor: x=%d y=%d w=%u h=%u lw=%u lh=%u scale=%g\n",
-         monitor.x, monitor.y, monitor.width, monitor.height,
-         monitor.logical_width, monitor.logical_height, monitor.scale);
-  wp_renderer_swap(monitor);
+  // wp_monitor_geometry_t monitor;
+  // wp_portal_wait_for_geometry(&monitor);
+  // printf("detected monitor: x=%d y=%d w=%u h=%u lw=%u lh=%u scale=%g\n",
+  //        monitor.x, monitor.y, monitor.width, monitor.height,
+  //        monitor.logical_width, monitor.logical_height, monitor.scale);
+  wp_renderer_swap();
   return NULL;
 }
 

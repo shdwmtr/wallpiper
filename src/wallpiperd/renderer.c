@@ -149,10 +149,8 @@ static bool discover_new_renderer_pid(const wp_pid_list_t *pre_spawn,
   return false;
 }
 
-void wp_renderer_spawn(wp_monitor_geometry_t monitor) {
-  printf("spawning renderer: (wallpaper selection is Wallpaper Engine's own) "
-         "%ux%u scale=%g\n",
-         monitor.width, monitor.height, monitor.scale);
+void wp_renderer_spawn(void) {
+  printf("spawning renderer: (wallpaper selection is Wallpaper Engine's own)\n");
 
   wp_pid_list_t old_wrappers;
   wp_find_proton_wrapper_pids(&old_wrappers);
@@ -232,15 +230,6 @@ void wp_renderer_spawn(wp_monitor_geometry_t monitor) {
       if (wp_ctl_socket_path(portal_name, ctl_socket, sizeof(ctl_socket))) {
         setenv("WALLPIPER_PORTAL_CTL_SOCKET", ctl_socket, 1);
       }
-
-      /* GNOME and KDE composite the embedded window at the correct DPI
-       * themselves, manually tested. */
-      if (strcmp(portal_name, "gnome") != 0 &&
-          strcmp(portal_name, "kde") != 0) {
-        char scale_str[32];
-        snprintf(scale_str, sizeof(scale_str), "%g", monitor.scale);
-        setenv("WALLPIPER_UI_SCALE_FACTOR", scale_str, 1);
-      }
     }
 
     char cursor_path[1024];
@@ -311,10 +300,10 @@ void wp_renderer_spawn(wp_monitor_geometry_t monitor) {
   write_tracked_renderer_pids(&pending_renderers);
 }
 
-void wp_renderer_swap(wp_monitor_geometry_t monitor) {
+void wp_renderer_swap(void) {
   wp_pid_list_t existing;
   wp_find_renderer_pids(&existing);
   if (existing.count == 0) {
-    wp_renderer_spawn(monitor);
+    wp_renderer_spawn();
   }
 }
