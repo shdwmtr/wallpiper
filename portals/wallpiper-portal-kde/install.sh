@@ -50,6 +50,11 @@ fi
 
 sudo cmake --install "$BUILD_DIR"
 
-if ! kpackagetool6 --type Plasma/Wallpaper --upgrade "$SCRIPT_DIR/extension" 2>/dev/null; then
-    kpackagetool6 --type Plasma/Wallpaper --install "$SCRIPT_DIR/extension"
+KPACKAGETOOL6=(kpackagetool6)
+if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ]; then
+    KPACKAGETOOL6=(sudo -u "$SUDO_USER" kpackagetool6)
+fi
+
+if ! "${KPACKAGETOOL6[@]}" --type Plasma/Wallpaper --upgrade "$SCRIPT_DIR/extension" 2>/dev/null; then
+    "${KPACKAGETOOL6[@]}" --type Plasma/Wallpaper --install "$SCRIPT_DIR/extension"
 fi
