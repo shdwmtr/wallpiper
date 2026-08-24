@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/shdwmtr/wallpiper/compare/v1.1.0...v1.1.1) (2026-08-24)
+
+
+### Bug Fixes
+
+* fix build system. Closes [#12](https://github.com/shdwmtr/wallpiper/issues/12) ([53f7b0b](https://github.com/shdwmtr/wallpiper/commit/53f7b0b5f350fce4c23eaedd52705ad891c5bb94))
+
 # [1.1.0](https://github.com/shdwmtr/wallpiper/compare/v1.0.0...v1.1.0) (2026-08-24)
 
 
