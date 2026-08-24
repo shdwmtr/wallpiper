@@ -38,9 +38,9 @@ SRCS := \
 
 OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
 
-.PHONY: build build-protocol build-wl-common clean
+.PHONY: build clean FORCE
 
-build: build-protocol build-wl-common $(BIN)
+build: $(BIN)
 
 $(BIN): $(OBJS) $(PROTOCOL_LIB) $(WL_COMMON_LIB) | $(TARGET_DIR)
 	$(CC) $(CFLAGS) -Wl,--gc-sections -s -o $@ $(OBJS) $(WL_COMMON_LIB) $(PROTOCOL_LIB) -lpthread -lm $(WAYLAND_LIBS)
@@ -48,11 +48,13 @@ $(BIN): $(OBJS) $(PROTOCOL_LIB) $(WL_COMMON_LIB) | $(TARGET_DIR)
 $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-build-protocol:
+$(PROTOCOL_LIB): FORCE
 	$(MAKE) -C ../../protocol build
 
-build-wl-common:
+$(WL_COMMON_LIB): FORCE
 	$(MAKE) -C ../wallpiper-portal-wl-common build
+
+FORCE:
 
 $(TARGET_DIR) $(OBJ_DIR):
 	mkdir -p $@

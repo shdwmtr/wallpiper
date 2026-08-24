@@ -37,9 +37,9 @@ SRCS := \
 
 OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
 
-.PHONY: build build-protocol clean
+.PHONY: build clean FORCE
 
-build: build-protocol $(BIN)
+build: $(BIN)
 
 $(BIN): $(OBJS) $(PROTOCOL_LIB) | $(TARGET_DIR)
 	$(CC) $(CFLAGS) -Wl,--gc-sections -s -o $@ $(OBJS) $(PROTOCOL_LIB) -lpthread -lm $(XCB_LIBS)
@@ -47,8 +47,10 @@ $(BIN): $(OBJS) $(PROTOCOL_LIB) | $(TARGET_DIR)
 $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-build-protocol:
+$(PROTOCOL_LIB): FORCE
 	$(MAKE) -C ../../protocol build
+
+FORCE:
 
 $(TARGET_DIR) $(OBJ_DIR):
 	mkdir -p $@
