@@ -6,7 +6,13 @@ Wallpiper then metaphorically "pipes" your wallpaper (using zero-copy [dma-buf](
 
 If you find this utility/tool useful, please consider giving it a star ⭐
 
-<img width="3840" height="2160" alt="image" src="https://github.com/user-attachments/assets/04ad57fd-8430-4510-9c8b-7e3ae0c7071c" />
+![Preview Image of Wallpiper](https://github.com/user-attachments/assets/04ad57fd-8430-4510-9c8b-7e3ae0c7071c)
+
+## Why? Other projects exist? 
+
+It's simple. Wallpiper is a translation layer, not a re-implementation. It doesn't depend on Wallpaper Engine, or any program it could theoretically run. Think of it more like Proton itself. 
+Other projects, such as [linux-wallpaperengine](https://github.com/Almamu/linux-wallpaperengine), are re-implementations. This means Wallpaper Engine's private spec/codebase is being cloned/mirrorred (largely by AI).
+By design, its far more unstable, and not actually Wallpaper Engine. 
 
 ## Usage
 
