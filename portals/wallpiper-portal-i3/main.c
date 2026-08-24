@@ -624,6 +624,9 @@ static void handle_ctl_request(wp_i3_state_t *state, wp_ctl_request_t request,
     snprintf(response.err, sizeof(response.err), "%s",
              "handled by ctl listener");
     break;
+  case WP_CTL_REQUEST_PING:
+    response.tag = WP_CTL_RESPONSE_OK;
+    break;
   default:
     response.tag = WP_CTL_RESPONSE_ERR;
     snprintf(response.err, sizeof(response.err), "%s", "unrecognized command");

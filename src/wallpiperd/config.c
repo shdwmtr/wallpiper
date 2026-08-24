@@ -31,16 +31,6 @@
 #include "wallpiper/protocol.h"
 #include "wallpiper/steam_paths.h"
 
-const wp_monitor_geometry_t WP_FALLBACK_MONITOR = {
-    .x = 0,
-    .y = 0,
-    .width = 1920,
-    .height = 1080,
-    .logical_width = 1920,
-    .logical_height = 1080,
-    .scale = 1.0,
-};
-
 static bool fmt_ok(char *out, size_t out_len, const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);

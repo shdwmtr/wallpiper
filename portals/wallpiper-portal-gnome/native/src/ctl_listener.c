@@ -111,6 +111,8 @@ static gboolean on_ctl_socket_connectable(gint fd, GIOCondition condition,
       meta_cursor_tracker_get_pointer(tracker, &point, NULL);
     response =
         g_strdup_printf("CURSOR_POS %d %d\n", (int)point.x, (int)point.y);
+  } else if (g_strcmp0(line, "PING") == 0) {
+    response = g_strdup("OK\n");
   } else {
     response = g_strdup_printf("ERR unrecognized command\n");
   }

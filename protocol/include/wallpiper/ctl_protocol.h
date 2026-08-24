@@ -35,6 +35,7 @@ typedef enum {
   WP_CTL_REQUEST_DEBUG_ON,
   WP_CTL_REQUEST_DEBUG_OFF,
   WP_CTL_REQUEST_CURSOR_POS,
+  WP_CTL_REQUEST_PING,
 } wp_ctl_request_t;
 
 typedef enum {

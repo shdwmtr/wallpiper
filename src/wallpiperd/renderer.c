@@ -150,7 +150,7 @@ static bool discover_new_renderer_pid(const wp_pid_list_t *pre_spawn,
 }
 
 void wp_renderer_spawn(void) {
-  printf("spawning renderer: (wallpaper selection is Wallpaper Engine's own)\n");
+  printf("spawning wallpaper-engine...\n");
 
   wp_pid_list_t old_wrappers;
   wp_find_proton_wrapper_pids(&old_wrappers);

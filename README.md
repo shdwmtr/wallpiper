@@ -285,11 +285,9 @@ wallpaper engine commands:
   pause | play   | stop
   next  | prev   | reset
   mute  | unmute | volume <0-100>
-  set <path|workshop-id> [monitor]
-  prop <path|workshop-id> <name> <value> [monitor]
+  set <path|workshop-id> [monitor; int; 0-indexed]
+  prop <path|workshop-id> <name> <value> [monitor; int; 0-indexed]
   list
-  monitors
-  (monitor defaults to wallpaper engine's last-selected monitor slot; see `monitors` for valid names)
 
 standalone commands:
   check-config

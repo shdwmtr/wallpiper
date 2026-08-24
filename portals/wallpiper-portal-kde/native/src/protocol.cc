@@ -276,6 +276,8 @@ std::optional<CtlRequest> parseCtlRequest(const std::string &line) {
     return CtlRequest::DebugOff;
   if (trimmed == "CURSOR_POS")
     return CtlRequest::CursorPos;
+  if (trimmed == "PING")
+    return CtlRequest::Ping;
   return std::nullopt;
 }
 
@@ -291,6 +293,8 @@ std::string encodeCtlRequest(CtlRequest request) {
     return "DEBUG_OFF\n";
   case CtlRequest::CursorPos:
     return "CURSOR_POS\n";
+  case CtlRequest::Ping:
+    return "PING\n";
   }
   return {};
 }

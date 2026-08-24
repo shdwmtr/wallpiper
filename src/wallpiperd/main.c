@@ -48,13 +48,9 @@ static bool daemon_command_handler(const char *const *args, size_t arg_count,
   return wp_commands_dispatch(args, arg_count, err_out, err_out_len);
 }
 
-static void *geometry_wait_thread_main(void *arg) {
+static void *readiness_wait_thread_main(void *arg) {
   (void)arg;
-  // wp_monitor_geometry_t monitor;
-  // wp_portal_wait_for_geometry(&monitor);
-  // printf("detected monitor: x=%d y=%d w=%u h=%u lw=%u lh=%u scale=%g\n",
-  //        monitor.x, monitor.y, monitor.width, monitor.height,
-  //        monitor.logical_width, monitor.logical_height, monitor.scale);
+  wp_portal_wait_ready();
   wp_renderer_swap();
   return NULL;
 }
@@ -176,11 +172,11 @@ static void run(void) {
   wp_portal_spawn(&strategy);
 
   bool patient = strategy.kind == WP_PORTAL_EXTERNALLY_MANAGED;
-  wp_portal_spawn_geometry_watcher(portal_name, patient);
+  wp_portal_spawn_readiness_watcher(portal_name, patient);
 
-  pthread_t geometry_thread;
-  pthread_create(&geometry_thread, NULL, geometry_wait_thread_main, NULL);
-  pthread_detach(geometry_thread);
+  pthread_t readiness_thread;
+  pthread_create(&readiness_thread, NULL, readiness_wait_thread_main, NULL);
+  pthread_detach(readiness_thread);
 
   pthread_t ctl_thread;
   pthread_create(&ctl_thread, NULL, daemon_ctl_listener_thread_main, NULL);

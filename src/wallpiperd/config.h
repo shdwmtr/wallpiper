@@ -26,10 +26,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#include "wallpiper/monitor_geometry.h"
-
-extern const wp_monitor_geometry_t WP_FALLBACK_MONITOR;
-
 bool wp_renderer_pid_path(char *out, size_t out_len);
 bool wp_tray_icon_path(char *out, size_t out_len);
 bool wp_tray_click_path(char *out, size_t out_len);

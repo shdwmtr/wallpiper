@@ -23,8 +23,6 @@
 
 #include "portal.h"
 
-#include "config.h"
-
 #include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
@@ -104,20 +102,13 @@ void wp_portal_spawn(const wp_portal_strategy_t *strategy) {
   pthread_mutex_unlock(&g_state_mutex);
 }
 
-static bool geometry_equal(const wp_monitor_geometry_t *a,
-                           const wp_monitor_geometry_t *b) {
-  return a->x == b->x && a->y == b->y && a->width == b->width &&
-         a->height == b->height && a->logical_width == b->logical_width &&
-         a->logical_height == b->logical_height && a->scale == b->scale;
-}
-
 typedef struct {
   char name[64];
   bool patient;
-} geometry_watcher_args_t;
+} readiness_watcher_args_t;
 
-static void *geometry_watcher_thread(void *arg) {
-  geometry_watcher_args_t *args = arg;
+static void *readiness_watcher_thread(void *arg) {
+  readiness_watcher_args_t *args = arg;
   char name[64];
   snprintf(name, sizeof(name), "%s", args->name);
   bool patient = args->patient;
@@ -125,55 +116,37 @@ static void *geometry_watcher_thread(void *arg) {
 
   long interval_ms = patient ? 2000 : 300;
   unsigned attempt = 0;
-  bool was_reachable = false;
 
   for (;;) {
     attempt++;
     wp_ctl_response_t resp;
-    bool ok = wp_send_ctl_request(name, WP_CTL_REQUEST_GEOMETRY, &resp);
+    bool ok = wp_send_ctl_request(name, WP_CTL_REQUEST_PING, &resp);
 
-    if (ok && resp.tag == WP_CTL_RESPONSE_GEOMETRY) {
+    if (ok) {
+      printf("%s portal ready...\n", name);
       pthread_mutex_lock(&g_state_mutex);
-      bool changed =
-          !g_has_monitor || !geometry_equal(&g_monitor, &resp.geometry);
-      if (changed) {
-        printf("portal %s geometry: x=%d y=%d w=%u h=%u lw=%u lh=%u scale=%g\n",
-               name, resp.geometry.x, resp.geometry.y, resp.geometry.width,
-               resp.geometry.height, resp.geometry.logical_width,
-               resp.geometry.logical_height, resp.geometry.scale);
-      }
-      g_monitor = resp.geometry;
       g_has_monitor = true;
       pthread_mutex_unlock(&g_state_mutex);
-      was_reachable = true;
-    } else {
-      if (was_reachable) {
-        printf(
-            "portal %s ctl socket unreachable, keeping last known geometry\n",
-            name);
-        was_reachable = false;
-      }
+      return NULL;
+    }
+
+    if (!patient && attempt >= 10) {
+      printf("portal %s never answered on its ctl socket, proceeding anyway\n",
+             name);
       pthread_mutex_lock(&g_state_mutex);
-      if (!patient && attempt >= 10 && !g_has_monitor) {
-        printf("portal %s never answered a geometry request, falling back to "
-               "default\n",
-               name);
-        g_monitor = WP_FALLBACK_MONITOR;
-        g_has_monitor = true;
-      }
+      g_has_monitor = true;
       pthread_mutex_unlock(&g_state_mutex);
+      return NULL;
     }
 
     struct timespec ts = {.tv_sec = interval_ms / 1000,
                           .tv_nsec = (interval_ms % 1000) * 1000000L};
     nanosleep(&ts, NULL);
   }
-
-  return NULL;
 }
 
-void wp_portal_spawn_geometry_watcher(const char *name, bool patient) {
-  geometry_watcher_args_t *args = malloc(sizeof(*args));
+void wp_portal_spawn_readiness_watcher(const char *name, bool patient) {
+  readiness_watcher_args_t *args = malloc(sizeof(*args));
   if (!args) {
     return;
   }
@@ -181,23 +154,20 @@ void wp_portal_spawn_geometry_watcher(const char *name, bool patient) {
   args->patient = patient;
 
   pthread_t thread;
-  if (pthread_create(&thread, NULL, geometry_watcher_thread, args) != 0) {
+  if (pthread_create(&thread, NULL, readiness_watcher_thread, args) != 0) {
     free(args);
     return;
   }
   pthread_detach(thread);
 }
 
-bool wp_portal_wait_for_geometry(wp_monitor_geometry_t *out) {
+void wp_portal_wait_ready(void) {
   for (;;) {
     pthread_mutex_lock(&g_state_mutex);
     bool has = g_has_monitor;
-    if (has) {
-      *out = g_monitor;
-    }
     pthread_mutex_unlock(&g_state_mutex);
     if (has) {
-      return true;
+      return;
     }
     struct timespec ts = {.tv_sec = 0, .tv_nsec = 200000000L};
     nanosleep(&ts, NULL);

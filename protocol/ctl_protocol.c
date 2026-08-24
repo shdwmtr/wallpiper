@@ -68,6 +68,9 @@ bool wp_ctl_request_encode(wp_ctl_request_t request, char *out,
   case WP_CTL_REQUEST_CURSOR_POS:
     text = "CURSOR_POS\n";
     break;
+  case WP_CTL_REQUEST_PING:
+    text = "PING\n";
+    break;
   default:
     return false;
   }
@@ -93,6 +96,8 @@ bool wp_ctl_request_parse(const char *line, wp_ctl_request_t *out) {
     *out = WP_CTL_REQUEST_DEBUG_OFF;
   } else if (strcmp(buf, "CURSOR_POS") == 0) {
     *out = WP_CTL_REQUEST_CURSOR_POS;
+  } else if (strcmp(buf, "PING") == 0) {
+    *out = WP_CTL_REQUEST_PING;
   } else {
     return false;
   }
