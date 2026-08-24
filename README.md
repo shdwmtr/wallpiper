@@ -82,8 +82,6 @@ $ pacman -S mutter gobject-introspection mesa libdrm libxrandr libx11
 
 ```sh
 $ make build-gnome
-
-# requires root 
 $ make install-gnome
 ```
 
@@ -112,8 +110,6 @@ $ pacman -S cmake extra-cmake-modules qt6-base qt6-declarative mesa libx11
 
 ```sh
 $ make build-kde
-
-# requires root 
 $ make install-kde
 ```
 
