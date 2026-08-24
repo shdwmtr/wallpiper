@@ -47,13 +47,13 @@ static BOOL WINAPI fake_CreateProcessA(
     LPSTARTUPINFOA lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation) {
   char patched_cmdline[1024];
   BOOL is_wallpaperui =
-      (lpApplicationName && ansi_contains_ci(lpApplicationName,
-                                             "wallpaperui.exe")) ||
+      (lpApplicationName &&
+       ansi_contains_ci(lpApplicationName, "wallpaperui.exe")) ||
       (lpCommandLine && ansi_contains_ci(lpCommandLine, "wallpaperui.exe"));
   if (is_wallpaperui && lpCommandLine) {
     char scale[32];
-    DWORD scale_len =
-        GetEnvironmentVariableA("WALLPIPER_UI_SCALE_FACTOR", scale, sizeof(scale));
+    DWORD scale_len = GetEnvironmentVariableA("WALLPIPER_UI_SCALE_FACTOR",
+                                              scale, sizeof(scale));
     if (scale_len > 0 && scale_len < sizeof(scale)) {
       wsprintfA(patched_cmdline, "%s --force-device-scale-factor=%s",
                 lpCommandLine, scale);
@@ -97,8 +97,8 @@ static BOOL WINAPI fake_CreateProcessW(
       (lpCommandLine && wide_contains_ci(lpCommandLine, L"wallpaperui.exe"));
   if (is_wallpaperui && lpCommandLine) {
     char scale[32];
-    DWORD scale_len =
-        GetEnvironmentVariableA("WALLPIPER_UI_SCALE_FACTOR", scale, sizeof(scale));
+    DWORD scale_len = GetEnvironmentVariableA("WALLPIPER_UI_SCALE_FACTOR",
+                                              scale, sizeof(scale));
     if (scale_len > 0 && scale_len < sizeof(scale)) {
       wsprintfW(patched_cmdline, L"%s --force-device-scale-factor=%hs",
                 lpCommandLine, scale);
