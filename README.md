@@ -1,7 +1,7 @@
 # wallpiper 
 
-An ~100kb native translation layer for Wallpaper Engine on GNU/Linux based compositors. 
-Wallpiper offers native support for Wallpaper Engine, without re-inventing the wheel. 
+An ~100kb native Wallpaper Engine translation layer for GNU/Linux based compositors, without re-inventing the wheel. Proton only fails
+to translate select features of the Wallpaper Engines protocol, so wallpiper only stands where it has to.
 
 If you find this utility/tool useful, please consider giving it a star ⭐
 
