@@ -31,7 +31,8 @@ BIN := $(TARGET_DIR)/wallpiperctl
 PROTOCOL_LIB := $(TARGET_DIR)/libwallpiper-protocol.a
 
 SRCS := \
-	main.c
+	main.c \
+	we_control.c
 
 OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
 

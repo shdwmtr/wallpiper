@@ -26,27 +26,15 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#define WALLPAPER_ENGINE_APP_ID "431960"
+bool wp_we_send_control(const char *const *control_args,
+                        size_t control_arg_count, char *err_out,
+                        size_t err_out_len);
 
-bool wp_home_dir(char *out, size_t out_len);
-bool wp_install_dir(char *out, size_t out_len);
+bool wp_we_set_wallpaper(const char *target, const char *monitor,
+                         char *err_out, size_t err_out_len);
 
-bool wp_steam_root(char *out, size_t out_len, char *err_out,
-                   size_t err_out_len);
-bool wp_compatdata_dir(char *out, size_t out_len, char *err_out,
-                       size_t err_out_len);
-bool wp_workshop_content_dir(char *out, size_t out_len, char *err_out,
-                             size_t err_out_len);
-bool wp_we_config_path(char *out, size_t out_len, char *err_out,
-                       size_t err_out_len);
-bool wp_we_exe(char *out, size_t out_len, char *err_out, size_t err_out_len);
-bool wp_proton_bin(char *out, size_t out_len, char *err_out,
-                   size_t err_out_len);
-bool wp_wine_bin(char *out, size_t out_len, char *err_out, size_t err_out_len);
-bool wp_portal_name(char *out, size_t out_len, char *err_out,
-                    size_t err_out_len);
+bool wp_we_set_property(const char *target, const char *name,
+                        const char *value, const char *monitor,
+                        char *err_out, size_t err_out_len);
 
-bool wp_to_windows_path(const char *unix_path, char *out, size_t out_len);
-bool wp_from_windows_path(const char *windows_path, char *out, size_t out_len);
-
-void wp_describe(void);
+bool wp_we_list_wallpapers(char *err_out, size_t err_out_len);
