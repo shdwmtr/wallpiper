@@ -5,6 +5,8 @@ Wallpiper offers native support for Wallpaper Engine, without re-inventing the w
 
 If you find this utility/tool useful, please consider giving it a star ⭐
 
+<img width="3840" height="2160" alt="image" src="https://github.com/user-attachments/assets/04ad57fd-8430-4510-9c8b-7e3ae0c7071c" />
+
 ## Usage
 
 > Wallpiper is NOT installed to `PATH` automatically. All binaries live at `./target/release` relative to the repository root. 
