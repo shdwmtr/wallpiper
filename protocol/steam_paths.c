@@ -22,6 +22,7 @@
  */
 
 #include "wallpiper/steam_paths.h"
+#include "wallpiper/fsutil.h"
 #include "wallpiper/protocol.h"
 
 #include <ctype.h>
@@ -165,6 +166,38 @@ bool wp_we_exe(char *out, size_t out_len, char *err_out, size_t err_out_len) {
     return false;
   }
   return fmt_ok(out, out_len, "%s", path);
+}
+
+bool wp_we_sync_distribution(char *err_out, size_t err_out_len) {
+  char steam_root[768];
+  if (!wp_steam_root(steam_root, sizeof(steam_root), err_out, err_out_len)) {
+    return false;
+  }
+
+  char install_dir[900];
+  if (!fmt_ok(install_dir, sizeof(install_dir),
+              "%s/steamapps/common/wallpaper_engine", steam_root)) {
+    snprintf(err_out, err_out_len, "steam root path too long");
+    return false;
+  }
+
+  char distribution_dir[950];
+  if (!fmt_ok(distribution_dir, sizeof(distribution_dir), "%s/distribution",
+              install_dir)) {
+    snprintf(err_out, err_out_len, "steam root path too long");
+    return false;
+  }
+
+  if (!is_dir(distribution_dir)) {
+    return true;
+  }
+
+  if (!wp_sync_dir_tree(distribution_dir, install_dir)) {
+    snprintf(err_out, err_out_len,
+             "failed to sync %s into %s", distribution_dir, install_dir);
+    return false;
+  }
+  return true;
 }
 
 static bool scan_proton_candidates(const char *dir, char candidates[][1024],

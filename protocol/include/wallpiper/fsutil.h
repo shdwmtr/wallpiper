@@ -27,3 +27,4 @@
 
 bool wp_mkdir_p(const char *path);
 bool wp_mkdir_p_parent(const char *file_path);
+bool wp_sync_dir_tree(const char *src_dir, const char *dst_dir);

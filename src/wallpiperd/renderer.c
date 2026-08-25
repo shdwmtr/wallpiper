@@ -229,6 +229,10 @@ void wp_renderer_spawn(void) {
     close(logfd);
     return;
   }
+  if (!wp_we_sync_distribution(err, sizeof(err))) {
+    printf("warning: %s\n", err);
+  }
+
   char we_exe[1024];
   if (!wp_we_exe(we_exe, sizeof(we_exe), err, sizeof(err))) {
     printf("failed to spawn: %s\n", err);
