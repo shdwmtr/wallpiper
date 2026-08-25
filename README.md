@@ -281,7 +281,7 @@ $ make build-i3
 
   Controls how the Wallpaper Engine tray icon is translated: `native`, `notray`, `passthrough`
 
-  - `native` over `org.kde.StatusNotifierItem`/`dbusmenu`
+  - `native` over `org.kde.StatusNotifierItem`/`dbusmenu` (supports all portals)
   - `notray` no tray rendered at all. 
   - `passthrough` pushes a raw legacy XEmbed tray icon, which only appears if your desktop runs a legacy tray host.
 
