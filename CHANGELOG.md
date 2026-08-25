@@ -1,3 +1,10 @@
+## [1.1.4](https://github.com/shdwmtr/wallpiper/compare/v1.1.3...v1.1.4) (2026-08-25)
+
+
+### Bug Fixes
+
+* fix fsutil overwriting config ([a6cba39](https://github.com/shdwmtr/wallpiper/commit/a6cba3942fe270af412b00b26ad335f86385ff13))
+
 ## [1.1.3](https://github.com/shdwmtr/wallpiper/compare/v1.1.2...v1.1.3) (2026-08-25)
 
 
