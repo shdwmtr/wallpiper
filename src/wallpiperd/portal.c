@@ -114,17 +114,29 @@ static void *readiness_watcher_thread(void *arg) {
   bool patient = args->patient;
   free(args);
 
+  bool use_geometry = strcmp(name, "kde") == 0;
+
   long interval_ms = patient ? 2000 : 300;
   unsigned attempt = 0;
 
   for (;;) {
     attempt++;
     wp_ctl_response_t resp;
-    bool ok = wp_send_ctl_request(name, WP_CTL_REQUEST_PING, &resp);
+    bool ready;
 
-    if (ok) {
+    if (use_geometry) {
+      ready = wp_send_ctl_request(name, WP_CTL_REQUEST_GEOMETRY, &resp) &&
+              resp.tag == WP_CTL_RESPONSE_GEOMETRY;
+    } else {
+      ready = wp_send_ctl_request(name, WP_CTL_REQUEST_PING, &resp);
+    }
+
+    if (ready) {
       printf("%s portal ready...\n", name);
       pthread_mutex_lock(&g_state_mutex);
+      if (use_geometry) {
+        g_monitor = resp.geometry;
+      }
       g_has_monitor = true;
       pthread_mutex_unlock(&g_state_mutex);
       return NULL;
