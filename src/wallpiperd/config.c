@@ -25,6 +25,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -86,6 +87,15 @@ bool wp_menu_command_path(char *out, size_t out_len) {
   }
   return fmt_ok(out, out_len, "%s/wallpiper-menu-command", temp_dir);
 }
+
+static bool tray_opts_is(const char *value) {
+  const char *v = getenv("WALLPIPER_TRAY_OPTS");
+  return v && strcmp(v, value) == 0;
+}
+
+bool wp_tray_notray(void) { return tray_opts_is("notray"); }
+
+bool wp_tray_passthrough(void) { return tray_opts_is("passthrough"); }
 
 bool wp_cursor_pos_path(char *out, size_t out_len) {
   char temp_dir[512];

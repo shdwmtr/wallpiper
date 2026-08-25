@@ -32,6 +32,7 @@
 
 #include "cleanup.h"
 #include "commands.h"
+#include "config.h"
 #include "portal.h"
 #include "renderer.h"
 #include "signals.h"
@@ -157,7 +158,9 @@ static void run(void) {
   wp_install_shutdown_handler(wp_cleanup);
 
   wp_write_vk_layer_manifest();
-  wp_tray_spawn();
+  if (!wp_tray_notray() && !wp_tray_passthrough()) {
+    wp_tray_spawn();
+  }
 
   char portal_name[64];
   char err[256];

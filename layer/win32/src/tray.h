@@ -28,6 +28,7 @@
 
 void install_tray_hooks(void);
 void post_tray_click(BOOL is_right_click);
+BOOL wp_tray_opts_passthrough(void);
 
 extern UINT32 g_tray_uid;
 extern UINT32 g_tray_callback_msg;

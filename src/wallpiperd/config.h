@@ -32,6 +32,8 @@ bool wp_tray_icon_path(char *out, size_t out_len);
 bool wp_tray_click_path(char *out, size_t out_len);
 bool wp_menu_file_path(char *out, size_t out_len);
 bool wp_menu_command_path(char *out, size_t out_len);
+bool wp_tray_notray(void);
+bool wp_tray_passthrough(void);
 bool wp_cursor_pos_path(char *out, size_t out_len);
 bool wp_wine_fonts_dir(char *out, size_t out_len);
 bool wp_font_cache_dir(char *out, size_t out_len);

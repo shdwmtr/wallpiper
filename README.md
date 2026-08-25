@@ -276,6 +276,14 @@ $ make build-i3
 
   Forces N scale factor on Wallpaper Engines properties-panel process. Not auto-detected.
 
+#### `WALLPIPER_TRAY_OPTS`
+  **Default:** `native`
+
+  Controls how the Wallpaper Engine tray icon is translated: `native`, `notray`, `passthrough`
+
+  - `native` over `org.kde.StatusNotifierItem`/`dbusmenu`
+  - `notray` no tray rendered at all. 
+  - `passthrough` pushes a raw legacy XEmbed tray icon, which only appears if your desktop runs a legacy tray host.
 
 ## Command API
 

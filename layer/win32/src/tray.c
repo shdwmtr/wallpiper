@@ -207,6 +207,14 @@ static BOOL WINAPI fake_Shell_NotifyIconW(DWORD dwMessage,
   return TRUE;
 }
 
+BOOL wp_tray_opts_passthrough(void) {
+  WCHAR buf[32];
+  if (GetEnvironmentVariableW(L"WALLPIPER_TRAY_OPTS", buf, 32) == 0) {
+    return FALSE;
+  }
+  return lstrcmpiW(buf, L"passthrough") == 0;
+}
+
 void install_tray_hooks(void) {
   FARPROC origTray =
       patch_iat(GetModuleHandleW(NULL), "SHELL32.dll", "Shell_NotifyIconW",

@@ -111,16 +111,18 @@ void install_progman_hook(void) {
   debug_log(orig ? "install_progman_hook: patch_iat FindWindowW OK"
                  : "install_progman_hook: patch_iat FindWindowW NOT FOUND");
 
-  install_tray_hooks();
-  install_menu_hooks();
-  install_wait_hooks();
-  install_spawn_hooks();
+  if (!wp_tray_opts_passthrough()) {
+    install_tray_hooks();
+    install_menu_hooks();
 
-  HANDLE menu_thread =
-      CreateThread(NULL, 0, file_trigger_watcher_thread, NULL, 0, NULL);
-  if (menu_thread) {
-    CloseHandle(menu_thread);
+    HANDLE menu_thread =
+        CreateThread(NULL, 0, file_trigger_watcher_thread, NULL, 0, NULL);
+    if (menu_thread) {
+      CloseHandle(menu_thread);
+    }
   }
 
+  install_wait_hooks();
+  install_spawn_hooks();
   install_cursor_hooks();
 }
