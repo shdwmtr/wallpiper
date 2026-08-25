@@ -1,3 +1,10 @@
+## [1.2.2](https://github.com/shdwmtr/wallpiper/compare/v1.2.1...v1.2.2) (2026-08-25)
+
+
+### Bug Fixes
+
+* Fix tray rendering issues, and tray being duplicated on GNOME and KDE. Closes [#8](https://github.com/shdwmtr/wallpiper/issues/8) ([75ac9fb](https://github.com/shdwmtr/wallpiper/commit/75ac9fb79d33d42c05c620cc90628872219a7d7f))
+
 ## [1.2.1](https://github.com/shdwmtr/wallpiper/compare/v1.2.0...v1.2.1) (2026-08-25)
 
 
