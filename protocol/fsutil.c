@@ -111,6 +111,9 @@ bool wp_sync_dir_tree(const char *src_dir, const char *dst_dir) {
     if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
       continue;
     }
+    if (strcmp(entry->d_name, "config.json") == 0) {
+      continue;
+    }
 
     char src_path[1024];
     char dst_path[1024];
@@ -140,10 +143,7 @@ bool wp_sync_dir_tree(const char *src_dir, const char *dst_dir) {
     }
 
     struct stat dst_st;
-    bool up_to_date = stat(dst_path, &dst_st) == 0 &&
-                      dst_st.st_size == src_st.st_size &&
-                      dst_st.st_mtime >= src_st.st_mtime;
-    if (up_to_date) {
+    if (stat(dst_path, &dst_st) == 0) {
       continue;
     }
 
