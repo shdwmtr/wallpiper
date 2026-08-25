@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/shdwmtr/wallpiper/compare/v1.1.1...v1.1.2) (2026-08-25)
+
+
+### Bug Fixes
+
+* stop targeting arbitrary python3 processes as old proton wrappers. Closes [#13](https://github.com/shdwmtr/wallpiper/issues/13) ([608610d](https://github.com/shdwmtr/wallpiper/commit/608610d6518df7a7a393c25583f82c8636a4ab6e))
+
 ## [1.1.1](https://github.com/shdwmtr/wallpiper/compare/v1.1.0...v1.1.1) (2026-08-24)
 
 
