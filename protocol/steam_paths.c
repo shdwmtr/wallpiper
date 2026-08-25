@@ -140,6 +140,43 @@ bool wp_we_config_path(char *out, size_t out_len, char *err_out,
                 "%s/steamapps/common/wallpaper_engine/config.json", steam_root);
 }
 
+bool wp_we_ensure_default_config(char *err_out, size_t err_out_len) {
+  char config_path[1024];
+  if (!wp_we_config_path(config_path, sizeof(config_path), err_out,
+                         err_out_len)) {
+    return false;
+  }
+
+  if (is_regular_file(config_path)) {
+    return true;
+  }
+
+  static const char *default_config =
+      "{\n"
+      "    \"steamuser\" :\n"
+      "    {\n"
+      "        \"general\" :\n"
+      "        {\n"
+      "            \"user\" :\n"
+      "            {\n"
+      "                \"adjustdwmcolormode\" : \"disabled\",\n"
+      "                \"uihardwareacceleration\" : false\n"
+      "            }\n"
+      "        }\n"
+      "    }\n"
+      "}\n";
+
+  FILE *f = fopen(config_path, "w");
+  if (!f) {
+    snprintf(err_out, err_out_len, "failed to write default config to %s",
+             config_path);
+    return false;
+  }
+  fputs(default_config, f);
+  fclose(f);
+  return true;
+}
+
 bool wp_we_exe(char *out, size_t out_len, char *err_out, size_t err_out_len) {
   const char *override = getenv("WALLPIPER_WE_EXE");
   if (override && override[0] != '\0') {

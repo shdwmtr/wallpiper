@@ -39,6 +39,7 @@ bool wp_workshop_content_dir(char *out, size_t out_len, char *err_out,
                              size_t err_out_len);
 bool wp_we_config_path(char *out, size_t out_len, char *err_out,
                        size_t err_out_len);
+bool wp_we_ensure_default_config(char *err_out, size_t err_out_len);
 bool wp_we_exe(char *out, size_t out_len, char *err_out, size_t err_out_len);
 bool wp_we_sync_distribution(char *err_out, size_t err_out_len);
 bool wp_proton_bin(char *out, size_t out_len, char *err_out,

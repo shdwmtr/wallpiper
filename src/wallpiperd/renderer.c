@@ -232,6 +232,9 @@ void wp_renderer_spawn(void) {
   if (!wp_we_sync_distribution(err, sizeof(err))) {
     printf("warning: %s\n", err);
   }
+  if (!wp_we_ensure_default_config(err, sizeof(err))) {
+    printf("warning: %s\n", err);
+  }
 
   char we_exe[1024];
   if (!wp_we_exe(we_exe, sizeof(we_exe), err, sizeof(err))) {
