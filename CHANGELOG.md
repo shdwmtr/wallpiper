@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/shdwmtr/wallpiper/compare/v1.2.0...v1.2.1) (2026-08-25)
+
+
+### Bug Fixes
+
+* fix wallpiper failing to IPC with external portals (GNOME, KDE) ([d690ead](https://github.com/shdwmtr/wallpiper/commit/d690ead69de98203a94cdd1066ced9545ac61c75))
+
 # [1.2.0](https://github.com/shdwmtr/wallpiper/compare/v1.1.4...v1.2.0) (2026-08-25)
 
 
