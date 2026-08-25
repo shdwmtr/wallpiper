@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/shdwmtr/wallpiper/compare/v1.1.4...v1.2.0) (2026-08-25)
+
+
+### Features
+
+* Disable hardware acceleration by default (still able to turn back on in WE Settings) ([8768ef0](https://github.com/shdwmtr/wallpiper/commit/8768ef032f87494d14572321fbce247f707b53ba))
+
 ## [1.1.4](https://github.com/shdwmtr/wallpiper/compare/v1.1.3...v1.1.4) (2026-08-25)
 
 
