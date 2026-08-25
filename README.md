@@ -51,6 +51,12 @@ Get it from the [AUR](https://aur.archlinux.org/packages/wallpiper), or compile 
 
 ## Building from source
 
+> [!IMPORTANT]
+> It is highly recommended that you have a clean, never before ran installation of Wallpaper Engine before continuing.
+> Running it through Steam, Proton, Wine, or other compatability tools may silently break your install before you even start.
+>
+> If you face any issues during install, this should be your first hunch.
+
 ### Wallpiper Core
 
 Start by building the core of wallpiper
