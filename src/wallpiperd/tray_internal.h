@@ -38,6 +38,7 @@ typedef struct {
   uint32_t state;
   uint32_t type_flags;
   char text[256];
+  int32_t dbus_id;
 } wp_tray_entry_t;
 
 typedef struct {

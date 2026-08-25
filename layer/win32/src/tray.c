@@ -184,21 +184,15 @@ void post_tray_click(BOOL is_right_click) {
   }
 }
 
-typedef BOOL(WINAPI *ShellNotifyIconW_t)(DWORD, PNOTIFYICONDATAW);
-static ShellNotifyIconW_t real_Shell_NotifyIconW;
-
 static BOOL WINAPI fake_Shell_NotifyIconW(DWORD dwMessage,
                                           PNOTIFYICONDATAW nid) {
-  BOOL r =
-      real_Shell_NotifyIconW ? real_Shell_NotifyIconW(dwMessage, nid) : FALSE;
-
   char logbuf[128];
   wsprintfA(logbuf,
             "fake_Shell_NotifyIconW: dwMessage=%lu uVersion=%lu uFlags=0x%lx "
-            "uid=%lu -> %d",
+            "uid=%lu",
             (unsigned long)dwMessage, nid ? (unsigned long)nid->uVersion : 0,
             nid ? (unsigned long)nid->uFlags : 0,
-            nid ? (unsigned long)nid->uID : 0, r);
+            nid ? (unsigned long)nid->uID : 0);
   debug_log(logbuf);
 
   if (dwMessage == NIM_SETVERSION && nid) {
@@ -210,14 +204,13 @@ static BOOL WINAPI fake_Shell_NotifyIconW(DWORD dwMessage,
     write_tray_icon_file(nid);
   }
 
-  return r;
+  return TRUE;
 }
 
 void install_tray_hooks(void) {
   FARPROC origTray =
       patch_iat(GetModuleHandleW(NULL), "SHELL32.dll", "Shell_NotifyIconW",
                 (FARPROC)(void *)fake_Shell_NotifyIconW);
-  real_Shell_NotifyIconW = (ShellNotifyIconW_t)(void *)origTray;
   debug_log(
       origTray ? "install_progman_hook: patch_iat Shell_NotifyIconW OK"
                : "install_progman_hook: patch_iat Shell_NotifyIconW NOT FOUND");

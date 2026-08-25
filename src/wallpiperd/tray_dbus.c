@@ -44,6 +44,17 @@
 #define MENU_REFRESH_SETTLE_MS 80
 #define WP_TRAY_PREWARM_MAX_SEC 60
 
+#define WP_TRAY_MAX_MENU_DEPTH 8
+#define WP_TRAY_MAX_ID_SLOTS 2048
+
+typedef struct {
+  bool is_separator;
+  int32_t depth;
+  uint32_t anchor;
+  uint32_t ordinal;
+  int32_t dbus_id;
+} wp_tray_id_slot_t;
+
 typedef struct {
   pthread_mutex_t mutex;
   pthread_cond_t entries_cond;
@@ -57,6 +68,10 @@ typedef struct {
   uint64_t generation;
   uint32_t revision;
   bool refresh_in_progress;
+
+  wp_tray_id_slot_t id_slots[WP_TRAY_MAX_ID_SLOTS];
+  size_t id_slot_count;
+  int32_t next_dbus_id;
 
   DBusConnection *conn;
   char well_known_name[128];
@@ -535,14 +550,67 @@ static void append_node_properties(DBusMessageIter *struct_iter,
   dbus_message_iter_close_container(struct_iter, &dict_iter);
 }
 
-static int32_t entry_display_id(int index) { return (int32_t)index + 1; }
+static int32_t assign_dbus_id(bool is_separator, int32_t depth,
+                              uint32_t anchor, uint32_t ordinal) {
+  for (size_t i = 0; i < g_state.id_slot_count; i++) {
+    wp_tray_id_slot_t *s = &g_state.id_slots[i];
+    if (s->is_separator == is_separator && s->depth == depth &&
+        s->anchor == anchor && s->ordinal == ordinal) {
+      return s->dbus_id;
+    }
+  }
+  if (g_state.id_slot_count >= WP_TRAY_MAX_ID_SLOTS) {
+    return g_state.next_dbus_id++;
+  }
+  wp_tray_id_slot_t *s = &g_state.id_slots[g_state.id_slot_count++];
+  s->is_separator = is_separator;
+  s->depth = depth;
+  s->anchor = anchor;
+  s->ordinal = ordinal;
+  s->dbus_id = g_state.next_dbus_id++;
+  return s->dbus_id;
+}
+
+static void assign_stable_dbus_ids(wp_tray_entries_t *entries) {
+  uint32_t last_nonsep_at_depth[WP_TRAY_MAX_MENU_DEPTH];
+  uint32_t sep_ordinal_at_depth[WP_TRAY_MAX_MENU_DEPTH];
+  memset(last_nonsep_at_depth, 0, sizeof(last_nonsep_at_depth));
+  memset(sep_ordinal_at_depth, 0, sizeof(sep_ordinal_at_depth));
+
+  for (size_t i = 0; i < entries->count; i++) {
+    wp_tray_entry_t *e = &entries->entries[i];
+    int32_t depth = e->depth;
+    if (depth < 0) {
+      depth = 0;
+    } else if (depth >= WP_TRAY_MAX_MENU_DEPTH) {
+      depth = WP_TRAY_MAX_MENU_DEPTH - 1;
+    }
+
+    for (int32_t d = depth + 1; d < WP_TRAY_MAX_MENU_DEPTH; d++) {
+      last_nonsep_at_depth[d] = 0;
+      sep_ordinal_at_depth[d] = 0;
+    }
+
+    bool is_sep = (e->type_flags & WP_TRAY_MFT_SEPARATOR) != 0;
+    if (is_sep) {
+      uint32_t ordinal = sep_ordinal_at_depth[depth]++;
+      e->dbus_id =
+          assign_dbus_id(true, depth, last_nonsep_at_depth[depth], ordinal);
+    } else {
+      sep_ordinal_at_depth[depth] = 0;
+      last_nonsep_at_depth[depth] = e->id;
+      e->dbus_id = assign_dbus_id(false, depth, e->id, 0);
+    }
+  }
+}
 
 static int find_index_by_id(const wp_tray_entries_t *entries, int32_t id) {
-  int index = id - 1;
-  if (index < 0 || index >= (int)entries->count) {
-    return -1;
+  for (int i = 0; i < (int)entries->count; i++) {
+    if (entries->entries[i].dbus_id == id) {
+      return i;
+    }
   }
-  return index;
+  return -1;
 }
 
 static int children_run_length(const wp_tray_entries_t *entries,
@@ -588,7 +656,7 @@ static void build_menu_node(DBusMessageIter *parent_iter,
       DBusMessageIter variant_iter;
       dbus_message_iter_open_container(&children_iter, DBUS_TYPE_VARIANT,
                                        "(ia{sv}av)", &variant_iter);
-      build_menu_node(&variant_iter, entries, child, entry_display_id(i), i + 1,
+      build_menu_node(&variant_iter, entries, child, child->dbus_id, i + 1,
                       child_depth + 1, next_remaining);
       dbus_message_iter_close_container(&children_iter, &variant_iter);
 
@@ -601,6 +669,15 @@ static void build_menu_node(DBusMessageIter *parent_iter,
   dbus_message_iter_close_container(parent_iter, &struct_iter);
 }
 
+static void ensure_menu_populated(void) {
+  pthread_mutex_lock(&g_state.mutex);
+  bool empty = g_state.entries.count == 0;
+  pthread_mutex_unlock(&g_state.mutex);
+  if (empty) {
+    refresh_menu_from_win32();
+  }
+}
+
 static DBusHandlerResult handle_menu_get_layout(DBusConnection *conn,
                                                 DBusMessage *msg) {
   dbus_int32_t parent_id = 0;
@@ -610,6 +687,8 @@ static DBusHandlerResult handle_menu_get_layout(DBusConnection *conn,
   dbus_message_iter_get_basic(&arg_iter, &parent_id);
   dbus_message_iter_next(&arg_iter);
   dbus_message_iter_get_basic(&arg_iter, &recursion_depth);
+
+  ensure_menu_populated();
 
   pthread_mutex_lock(&g_state.mutex);
   wp_tray_entries_t entries = g_state.entries;
@@ -654,6 +733,8 @@ static DBusHandlerResult handle_menu_get_group_properties(DBusConnection *conn,
 
   DBusMessageIter ids_iter;
   dbus_message_iter_recurse(&arg_iter, &ids_iter);
+
+  ensure_menu_populated();
 
   pthread_mutex_lock(&g_state.mutex);
   wp_tray_entries_t entries = g_state.entries;
@@ -1080,6 +1161,7 @@ static void emit_layout_updated(uint32_t revision) {
 void wp_tray_state_on_menu_dump_changed(const wp_tray_entries_t *entries) {
   pthread_mutex_lock(&g_state.mutex);
   g_state.entries = *entries;
+  assign_stable_dbus_ids(&g_state.entries);
   g_state.generation++;
   pthread_cond_broadcast(&g_state.entries_cond);
   pthread_mutex_unlock(&g_state.mutex);
@@ -1226,18 +1308,19 @@ static void *dbus_thread_main(void *arg) {
 static void *tray_announce_thread_main(void *arg) {
   (void)arg;
 
-  wp_tray_debug_log("spawn: pre-warming menu before announcing to the host");
-  time_t prewarm_deadline = time(NULL) + WP_TRAY_PREWARM_MAX_SEC;
-  while (!refresh_menu_from_win32() && time(NULL) < prewarm_deadline) {
-    wp_tray_debug_log("spawn: pre-warm attempt failed, retrying");
-  }
-
   pthread_t dbus_thread;
   if (pthread_create(&dbus_thread, NULL, dbus_thread_main, NULL) == 0) {
     pthread_detach(dbus_thread);
   }
 
   register_status_notifier_item();
+
+  wp_tray_debug_log("spawn: pre-warming menu after announcing to the host");
+  time_t prewarm_deadline = time(NULL) + WP_TRAY_PREWARM_MAX_SEC;
+  while (!refresh_menu_from_win32() && time(NULL) < prewarm_deadline) {
+    wp_tray_debug_log("spawn: pre-warm attempt failed, retrying");
+  }
+
   return NULL;
 }
 
@@ -1249,6 +1332,8 @@ void wp_tray_spawn(void) {
   g_state.generation = 0;
   g_state.revision = 0;
   g_state.refresh_in_progress = false;
+  g_state.id_slot_count = 0;
+  g_state.next_dbus_id = 1;
 
   dbus_threads_init_default();
 
