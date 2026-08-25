@@ -1,3 +1,10 @@
+## [1.1.3](https://github.com/shdwmtr/wallpiper/compare/v1.1.2...v1.1.3) (2026-08-25)
+
+
+### Bug Fixes
+
+* fix wallpaper engines broken default installation. Closes [#14](https://github.com/shdwmtr/wallpiper/issues/14) ([c00bf2d](https://github.com/shdwmtr/wallpiper/commit/c00bf2db3e4ab20b69c1205e7e8c6861c8cdeefa))
+
 ## [1.1.2](https://github.com/shdwmtr/wallpiper/compare/v1.1.1...v1.1.2) (2026-08-25)
 
 
