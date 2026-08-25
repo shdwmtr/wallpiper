@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/shdwmtr/wallpiper/compare/v1.2.2...v1.3.0) (2026-08-25)
+
+
+### Features
+
+* add tray translation options `native`, `notray`, `passthrough` ([6bb89f3](https://github.com/shdwmtr/wallpiper/commit/6bb89f3c01b005a0ecd53c73b651cdab7daad6c3))
+
 ## [1.2.2](https://github.com/shdwmtr/wallpiper/compare/v1.2.1...v1.2.2) (2026-08-25)
 
 
