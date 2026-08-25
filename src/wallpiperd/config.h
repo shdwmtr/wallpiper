@@ -27,6 +27,7 @@
 #include <stddef.h>
 
 bool wp_renderer_pid_path(char *out, size_t out_len);
+bool wp_wrapper_pid_path(char *out, size_t out_len);
 bool wp_tray_icon_path(char *out, size_t out_len);
 bool wp_tray_click_path(char *out, size_t out_len);
 bool wp_menu_file_path(char *out, size_t out_len);

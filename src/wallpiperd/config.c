@@ -47,6 +47,14 @@ bool wp_renderer_pid_path(char *out, size_t out_len) {
   return fmt_ok(out, out_len, "%s/wallpiper-renderer-pid", temp_dir);
 }
 
+bool wp_wrapper_pid_path(char *out, size_t out_len) {
+  char temp_dir[512];
+  if (!wp_temp_dir(temp_dir, sizeof(temp_dir))) {
+    return false;
+  }
+  return fmt_ok(out, out_len, "%s/wallpiper-wrapper-pid", temp_dir);
+}
+
 bool wp_tray_icon_path(char *out, size_t out_len) {
   char temp_dir[512];
   if (!wp_temp_dir(temp_dir, sizeof(temp_dir))) {

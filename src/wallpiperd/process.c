@@ -134,16 +134,6 @@ void wp_find_renderer_pids(wp_pid_list_t *out) {
   scan_proc_pids(out, comm_is_renderer, NULL);
 }
 
-static bool comm_is_python3(int pid, const void *ctx) {
-  (void)ctx;
-  char comm[256];
-  return read_comm(pid, comm, sizeof(comm)) && strcmp(comm, "python3") == 0;
-}
-
-void wp_find_proton_wrapper_pids(wp_pid_list_t *out) {
-  scan_proc_pids(out, comm_is_python3, NULL);
-}
-
 static bool cmdline_contains(int pid, const void *ctx) {
   const char *needle = ctx;
   char cmdline[8192];

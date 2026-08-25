@@ -82,6 +82,59 @@ static bool renderer_pid_still_valid(int pid) {
   return strcmp(comm, "wallpaper64.exe") == 0;
 }
 
+static bool wrapper_pid_still_valid(int pid) {
+  char path[64];
+  snprintf(path, sizeof(path), "/proc/%d/comm", pid);
+  FILE *f = fopen(path, "r");
+  if (!f) {
+    return false;
+  }
+  char comm[256];
+  size_t n = fread(comm, 1, sizeof(comm) - 1, f);
+  fclose(f);
+  while (n > 0 && (comm[n - 1] == '\n' || comm[n - 1] == '\r')) {
+    n--;
+  }
+  comm[n] = '\0';
+  return strcmp(comm, "python3") == 0;
+}
+
+static bool read_tracked_wrapper_pid(int *out_pid) {
+  char path[1024];
+  if (!wp_wrapper_pid_path(path, sizeof(path))) {
+    return false;
+  }
+  FILE *f = fopen(path, "r");
+  if (!f) {
+    return false;
+  }
+  char line[64];
+  bool ok = false;
+  if (fgets(line, sizeof(line), f)) {
+    char *end = NULL;
+    long pid = strtol(line, &end, 10);
+    if (end != line && pid > 0) {
+      *out_pid = (int)pid;
+      ok = true;
+    }
+  }
+  fclose(f);
+  return ok;
+}
+
+static void write_tracked_wrapper_pid(int pid) {
+  char path[1024];
+  if (!wp_wrapper_pid_path(path, sizeof(path))) {
+    return;
+  }
+  FILE *f = fopen(path, "w");
+  if (!f) {
+    return;
+  }
+  fprintf(f, "%d", pid);
+  fclose(f);
+}
+
 static void read_tracked_renderer_pids(wp_pid_list_t *out) {
   out->count = 0;
 
@@ -152,8 +205,9 @@ static bool discover_new_renderer_pid(const wp_pid_list_t *pre_spawn,
 void wp_renderer_spawn(void) {
   printf("spawning wallpaper-engine...\n");
 
-  wp_pid_list_t old_wrappers;
-  wp_find_proton_wrapper_pids(&old_wrappers);
+  int old_wrapper_pid;
+  bool have_old_wrapper = read_tracked_wrapper_pid(&old_wrapper_pid) &&
+                          wrapper_pid_still_valid(old_wrapper_pid);
 
   wp_pid_list_t pending_renderers;
   read_tracked_renderer_pids(&pending_renderers);
@@ -262,10 +316,11 @@ void wp_renderer_spawn(void) {
 
   close(logfd);
   printf("spawned proton wrapper pid=%d\n", (int)pid);
+  write_tracked_wrapper_pid((int)pid);
 
-  if (old_wrappers.count > 0) {
-    printf("cleaning up old proton wrapper pid(s)\n");
-    wp_kill_pids_gracefully(old_wrappers.pids, old_wrappers.count);
+  if (have_old_wrapper) {
+    printf("cleaning up old proton wrapper pid=%d\n", old_wrapper_pid);
+    wp_kill_pids_gracefully(&old_wrapper_pid, 1);
   }
 
   wp_pid_list_t still_valid_pending;
