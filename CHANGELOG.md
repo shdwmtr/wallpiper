@@ -1,3 +1,20 @@
+# [2.0.0](https://github.com/shdwmtr/wallpiper/compare/v1.4.0...v2.0.0) (2026-08-26)
+
+
+### Bug Fixes
+
+* **ci:** fix semantic-release extends resolution for local config ([399f098](https://github.com/shdwmtr/wallpiper/commit/399f0987958f4c7b204ab51617f7dcf4c054cb64))
+
+
+### Code Refactoring
+
+* refactor code-base to prioritize simplicity, matching existing projects like wine/proton. ([6ba7923](https://github.com/shdwmtr/wallpiper/commit/6ba792341fe3669902d071ecfe63de851b15e72d))
+
+
+### BREAKING CHANGES
+
+* build directory moved from ./target to ./build
+
 # [1.4.0](https://github.com/shdwmtr/wallpiper/compare/v1.3.0...v1.4.0) (2026-08-26)
 
 
