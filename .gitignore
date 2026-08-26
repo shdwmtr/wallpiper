@@ -3,5 +3,6 @@ node_modules/
 wallpiper-portal-gnome/native/.cache/
 /.cache
 /compile_commands.json
+/.releaserc.json
 
 start-wallpiper.sh

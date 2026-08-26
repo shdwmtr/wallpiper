@@ -23,6 +23,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Generate release config stub
+        run: echo '{"extends": "./.github/packages/.releaserc.json"}' > .releaserc.json
+
       - name: Release
         id: semantic
         uses: cycjimmy/semantic-release-action@v4
@@ -32,7 +35,6 @@ jobs:
             @semantic-release/changelog@6.0.3
             @semantic-release/exec@7.1.0
             @semantic-release/git@10.0.1
-          extends: ./.github/packages/.releaserc.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
