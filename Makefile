@@ -39,13 +39,13 @@ build-core: build-protocol build-daemon build-ctl build-vklayer build-interpose 
 build-protocol:
 	$(MAKE) -C protocol build
 
-build-daemon:
+build-daemon: build-protocol
 	$(MAKE) -C src/wallpiperd build
 
-build-ctl:
+build-ctl: build-protocol
 	$(MAKE) -C src/wallpiperctl build
 
-build-vklayer:
+build-vklayer: build-protocol
 	$(MAKE) -C layer/siphon build
 
 build-interpose:
@@ -54,19 +54,19 @@ build-interpose:
 build-dwmapi-shim:
 	$(MAKE) -C layer/win32 build
 
-build-wl-common:
+build-wl-common: build-protocol
 	$(MAKE) -C portals/wallpiper-portal-wl-common build
 
-build-hyprland:
+build-hyprland: build-protocol build-wl-common
 	$(MAKE) -C portals/wallpiper-portal-hyprland build
 
-build-i3:
+build-i3: build-protocol
 	$(MAKE) -C portals/wallpiper-portal-i3 build
 
-build-sway:
+build-sway: build-protocol build-wl-common
 	$(MAKE) -C portals/wallpiper-portal-sway build
 
-build-cosmic:
+build-cosmic: build-protocol build-wl-common
 	$(MAKE) -C portals/wallpiper-portal-cosmic build
 
 build-gnome:
