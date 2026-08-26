@@ -19,7 +19,7 @@ NOTE: wallpiper is early in development. Although backed by proper design, you m
 
 ## Usage
 
-> When built from source, wallpiper is NOT installed to `PATH` automatically. All binaries live at `./target/release` relative to the repository root. 
+> When built from source, wallpiper is NOT installed to `PATH` automatically. All binaries live at `./build/release` relative to the repository root. 
 
 ```sh
 # check config

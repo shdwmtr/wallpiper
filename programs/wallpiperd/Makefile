@@ -22,42 +22,49 @@
 #
 
 CC ?= cc
+DBUS_CFLAGS := $(shell pkg-config --cflags dbus-1)
+DBUS_LIBS := $(shell pkg-config --libs dbus-1)
 CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
-CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../include -I../libs/cjson
+CFLAGS += -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../include -I../../libs/cjson $(DBUS_CFLAGS)
 
-TARGET_DIR := ../build/release
-OBJ_DIR := ../build/objects/wallpiper-protocol
-LIB := $(TARGET_DIR)/libwallpiper-protocol.a
+TARGET_DIR := ../../build/release
+OBJ_DIR := ../../build/objects/wallpiperd
+BIN := $(TARGET_DIR)/wallpiperd
+PROTOCOL_LIB := $(TARGET_DIR)/libwallpiper-protocol.a
 
 SRCS := \
-	capture_socket.c \
-	ctl_protocol.c \
-	daemon_ctl_protocol.c \
-	debug_overlay.c \
-	fsutil.c \
-	monitor_geometry.c \
-	paths.c \
-	steam_paths.c
+	cleanup.c \
+	commands.c \
+	config.c \
+	dwmapi_shim.c \
+	font_rename.c \
+	fonts.c \
+	main.c \
+	portal.c \
+	process.c \
+	renderer.c \
+	signals.c \
+	tray_dbus.c \
+	tray_files.c \
+	vk_layer.c
 
 OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
-CJSON_OBJ := $(OBJ_DIR)/cJSON.o
 
-.PHONY: build clean
+.PHONY: build build-protocol clean
 
-build: $(LIB)
+build: build-protocol $(BIN)
 
-$(LIB): $(OBJS) $(CJSON_OBJ) | $(TARGET_DIR)
-	rm -f $@
-	ar rcs $@ $(OBJS) $(CJSON_OBJ)
+$(BIN): $(OBJS) $(PROTOCOL_LIB) | $(TARGET_DIR)
+	$(CC) $(CFLAGS) -Wl,--gc-sections -s -o $@ $(OBJS) $(PROTOCOL_LIB) -lpthread -lm $(DBUS_LIBS)
 
 $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(CJSON_OBJ): ../libs/cjson/cJSON.c | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c -o $@ $<
+build-protocol:
+	$(MAKE) -C ../../protocol build
 
 $(TARGET_DIR) $(OBJ_DIR):
 	mkdir -p $@
 
 clean:
-	rm -rf $(OBJ_DIR) $(LIB)
+	rm -rf $(OBJ_DIR) $(BIN)

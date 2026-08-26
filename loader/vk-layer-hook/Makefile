@@ -22,42 +22,40 @@
 #
 
 CC ?= cc
+VULKAN_CFLAGS := $(shell pkg-config --cflags vulkan)
 CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
-CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../include -I../libs/cjson
+CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../include -I../../libs/vulkan $(VULKAN_CFLAGS)
 
-TARGET_DIR := ../build/release
-OBJ_DIR := ../build/objects/wallpiper-protocol
-LIB := $(TARGET_DIR)/libwallpiper-protocol.a
+TARGET_DIR := ../../build/release
+OBJ_DIR := ../../build/objects/siphon
+SO := $(TARGET_DIR)/libVkLayer_wallpiper_capture.so
+PROTOCOL_LIB := $(TARGET_DIR)/libwallpiper-protocol.a
 
 SRCS := \
-	capture_socket.c \
-	ctl_protocol.c \
-	daemon_ctl_protocol.c \
-	debug_overlay.c \
-	fsutil.c \
-	monitor_geometry.c \
-	paths.c \
-	steam_paths.c
+	capture.c \
+	device.c \
+	instance.c \
+	layer_entry.c \
+	logging.c \
+	process.c
 
 OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
-CJSON_OBJ := $(OBJ_DIR)/cJSON.o
 
-.PHONY: build clean
+.PHONY: build build-protocol clean
 
-build: $(LIB)
+build: build-protocol $(SO)
 
-$(LIB): $(OBJS) $(CJSON_OBJ) | $(TARGET_DIR)
-	rm -f $@
-	ar rcs $@ $(OBJS) $(CJSON_OBJ)
+$(SO): $(OBJS) $(PROTOCOL_LIB) | $(TARGET_DIR)
+	$(CC) $(CFLAGS) -shared -Wl,--gc-sections -s -o $@ $(OBJS) $(PROTOCOL_LIB) -lpthread
 
 $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(CJSON_OBJ): ../libs/cjson/cJSON.c | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c -o $@ $<
+build-protocol:
+	$(MAKE) -C ../../protocol build
 
 $(TARGET_DIR) $(OBJ_DIR):
 	mkdir -p $@
 
 clean:
-	rm -rf $(OBJ_DIR) $(LIB)
+	rm -rf $(OBJ_DIR) $(SO)

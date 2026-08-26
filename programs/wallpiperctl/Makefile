@@ -23,41 +23,34 @@
 
 CC ?= cc
 CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
-CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../include -I../libs/cjson
+CFLAGS += -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../include -I../../libs/cjson
 
-TARGET_DIR := ../build/release
-OBJ_DIR := ../build/objects/wallpiper-protocol
-LIB := $(TARGET_DIR)/libwallpiper-protocol.a
+TARGET_DIR := ../../build/release
+OBJ_DIR := ../../build/objects/wallpiperctl
+BIN := $(TARGET_DIR)/wallpiperctl
+PROTOCOL_LIB := $(TARGET_DIR)/libwallpiper-protocol.a
 
 SRCS := \
-	capture_socket.c \
-	ctl_protocol.c \
-	daemon_ctl_protocol.c \
-	debug_overlay.c \
-	fsutil.c \
-	monitor_geometry.c \
-	paths.c \
-	steam_paths.c
+	main.c \
+	we_control.c
 
 OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
-CJSON_OBJ := $(OBJ_DIR)/cJSON.o
 
-.PHONY: build clean
+.PHONY: build build-protocol clean
 
-build: $(LIB)
+build: build-protocol $(BIN)
 
-$(LIB): $(OBJS) $(CJSON_OBJ) | $(TARGET_DIR)
-	rm -f $@
-	ar rcs $@ $(OBJS) $(CJSON_OBJ)
+$(BIN): $(OBJS) $(PROTOCOL_LIB) | $(TARGET_DIR)
+	$(CC) $(CFLAGS) -Wl,--gc-sections -s -o $@ $(OBJS) $(PROTOCOL_LIB) -lpthread
 
 $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(CJSON_OBJ): ../libs/cjson/cJSON.c | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c -o $@ $<
+build-protocol:
+	$(MAKE) -C ../../protocol build
 
 $(TARGET_DIR) $(OBJ_DIR):
 	mkdir -p $@
 
 clean:
-	rm -rf $(OBJ_DIR) $(LIB)
+	rm -rf $(OBJ_DIR) $(BIN)

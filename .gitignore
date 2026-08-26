@@ -1,16 +1,7 @@
-target/
+build/
 node_modules/
 wallpiper-portal-gnome/native/.cache/
 /.cache
 /compile_commands.json
 
-vendor/tcc/*.o
-vendor/tcc/*.a
-vendor/tcc/lib/*.o
-vendor/tcc/x86_64-win32-tcc
-vendor/tcc/c2str.exe
-vendor/tcc/tccdefs_.h
-vendor/tcc/config.h
-vendor/tcc/config.mak
-vendor/tcc/config.texi
 start-wallpiper.sh
