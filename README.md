@@ -318,6 +318,22 @@ Likely an issue with your underling translation layer. Only GE-Proton-11 and Val
 
 All users experiencing this issue fixed it upgrading to a later version of Proton. 
 
+### GStreamer-WARNING: libbz2.so.1.0: No such file or directory (Fedora)
+
+ This error is Fedora-specific and is only seen at runtime, causing intermittent crashes in Wallpaper Engine even when idle. It can be fixed by creating a symbolic link for the critical library `libbz2.so.1.0`, as it is named `libbz2.so.1` in Fedora.
+
+ On standard Fedora distributions:
+
+ ```
+ln -s /usr/lib64/libbz2.so.1 /usr/lib64/libbz2.so.1.0
+ ```
+ 
+ 
+  Immutable Fedora distributions (Fedora Silverblue, Aurora, Bazzite, etc.) will have to link this library to a user-accessible location. See [here](https://github.com/ublue-os/bazzite/issues/4978#issuecomment-4566369555) for an example of how to achieve this.
+
+  It is also worth ensuring GStreamer plugins are correctly installed. Check Freedesktop's installation instructions [here](https://gstreamer.freedesktop.org/documentation/installing/on-linux.html?gi-language=c).
+
+
 ## Contributing
 
 Issues and pull requests are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md). If wallpiper is useful to you, a star helps others find it!
