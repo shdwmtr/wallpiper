@@ -1,2 +1,2 @@
-portals/**/* linguist-vendored
-vendor/**/* linguist-vendored
+programs/wallpiper-portal-*/** linguist-vendored
+libs/**/* linguist-vendored

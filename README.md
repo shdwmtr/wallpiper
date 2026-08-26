@@ -19,7 +19,7 @@ NOTE: wallpiper is early in development. Although backed by proper design, you m
 
 ## Usage
 
-> When built from source, wallpiper is NOT installed to `PATH` automatically. All binaries live at `./target/release` relative to the repository root. 
+> When built from source, wallpiper is NOT installed to `PATH` automatically. All binaries live at `./build/release` relative to the repository root. 
 
 ```sh
 # check config
@@ -48,9 +48,12 @@ $ pacman -S base-devel dbus vulkan-headers vulkan-icd-loader fontconfig
 
 ## Packaging
 
+We welcome additional packaging submissions, all related packaging logic resides in `.github/packages`
+
 ### Arch Linux (AUR)
 
 Get it from the [AUR](https://aur.archlinux.org/packages/wallpiper), or compile [manually below](#building). 
+
 
 ## Building from source
 

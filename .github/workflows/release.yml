@@ -32,6 +32,7 @@ jobs:
             @semantic-release/changelog@6.0.3
             @semantic-release/exec@7.1.0
             @semantic-release/git@10.0.1
+          extends: ./.github/packages/.releaserc.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -75,7 +76,7 @@ jobs:
         if: matrix.pkg != 'wallpiper'
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          cp -r "packages/arch/wallpiper" /home/builder/core
+          cp -r ".github/packages/arch/wallpiper" /home/builder/core
 
           sed -i "s#git+\$url.git#git+file://$GITHUB_WORKSPACE#" /home/builder/core/PKGBUILD
           chown -R builder:builder /home/builder/core
@@ -86,7 +87,7 @@ jobs:
       - name: Build package
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          cp -r "packages/arch/${{ matrix.pkg }}" /home/builder/pkg
+          cp -r ".github/packages/arch/${{ matrix.pkg }}" /home/builder/pkg
 
           sed -i "s#git+\$url.git#git+file://$GITHUB_WORKSPACE#" /home/builder/pkg/PKGBUILD
           chown -R builder:builder /home/builder/pkg
@@ -164,7 +165,7 @@ jobs:
         uses: KSXGitHub/github-actions-deploy-aur@master
         with:
           pkgname: wallpiper
-          pkgbuild: ./packages/arch/wallpiper/PKGBUILD
+          pkgbuild: ./.github/packages/arch/wallpiper/PKGBUILD
           commit_username: GitHub Actions
           commit_email: github-actions@github.com
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
@@ -173,7 +174,6 @@ jobs:
 
   publish-portals:
     needs: [release, publish-core]
-    if: needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
     concurrency:
       group: aur-publish-portals-${{ matrix.pkg }}-${{ github.ref }}
@@ -190,9 +190,9 @@ jobs:
           - pkg: wallpiper-i3
             assets: ""
           - pkg: wallpiper-gnome
-            assets: "./packages/arch/wallpiper-gnome/wallpiper-gnome.install"
+            assets: "./.github/packages/arch/wallpiper-gnome/wallpiper-gnome.install"
           - pkg: wallpiper-kde
-            assets: "./packages/arch/wallpiper-kde/wallpiper-kde.install"
+            assets: "./.github/packages/arch/wallpiper-kde/wallpiper-kde.install"
 
     steps:
       - name: Checkout repository
@@ -204,7 +204,7 @@ jobs:
         uses: KSXGitHub/github-actions-deploy-aur@master
         with:
           pkgname: ${{ matrix.pkg }}
-          pkgbuild: ./packages/arch/${{ matrix.pkg }}/PKGBUILD
+          pkgbuild: ./.github/packages/arch/${{ matrix.pkg }}/PKGBUILD
           assets: ${{ matrix.assets }}
           commit_username: GitHub Actions
           commit_email: github-actions@github.com

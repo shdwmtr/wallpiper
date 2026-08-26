@@ -22,42 +22,42 @@
 #
 
 CC ?= cc
+WAYLAND_CFLAGS := $(shell pkg-config --cflags wayland-client)
+WAYLAND_LIBS := $(shell pkg-config --libs wayland-client)
 CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
-CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../include -I../libs/cjson
+CFLAGS += -fPIC -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../include -I../../build/objects/wallpiper-portal-wl-common/generated $(WAYLAND_CFLAGS)
 
-TARGET_DIR := ../build/release
-OBJ_DIR := ../build/objects/wallpiper-protocol
-LIB := $(TARGET_DIR)/libwallpiper-protocol.a
+TARGET_DIR := ../../build/release
+OBJ_DIR := ../../build/objects/wallpiper-portal-cosmic
+BIN := $(TARGET_DIR)/wallpiper-portal-cosmic
+PROTOCOL_LIB := $(TARGET_DIR)/libwallpiper-protocol.a
+WL_COMMON_LIB := $(TARGET_DIR)/libwallpiper-portal-wl-common.a
 
 SRCS := \
-	capture_socket.c \
-	ctl_protocol.c \
-	daemon_ctl_protocol.c \
-	debug_overlay.c \
-	fsutil.c \
-	monitor_geometry.c \
-	paths.c \
-	steam_paths.c
+	main.c
 
 OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
-CJSON_OBJ := $(OBJ_DIR)/cJSON.o
 
-.PHONY: build clean
+.PHONY: build clean FORCE
 
-build: $(LIB)
+build: $(BIN)
 
-$(LIB): $(OBJS) $(CJSON_OBJ) | $(TARGET_DIR)
-	rm -f $@
-	ar rcs $@ $(OBJS) $(CJSON_OBJ)
+$(BIN): $(OBJS) $(PROTOCOL_LIB) $(WL_COMMON_LIB) | $(TARGET_DIR)
+	$(CC) $(CFLAGS) -Wl,--gc-sections -s -o $@ $(OBJS) $(WL_COMMON_LIB) $(PROTOCOL_LIB) -lpthread -lm $(WAYLAND_LIBS)
 
 $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(CJSON_OBJ): ../libs/cjson/cJSON.c | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(PROTOCOL_LIB): FORCE
+	$(MAKE) -C ../../protocol build
+
+$(WL_COMMON_LIB): FORCE
+	$(MAKE) -C ../wallpiper-portal-wl-common build
+
+FORCE:
 
 $(TARGET_DIR) $(OBJ_DIR):
 	mkdir -p $@
 
 clean:
-	rm -rf $(OBJ_DIR) $(LIB)
+	rm -rf $(OBJ_DIR) $(BIN)

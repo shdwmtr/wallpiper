@@ -21,43 +21,45 @@
 # SOFTWARE.
 #
 
-CC ?= cc
-CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
-CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../include -I../libs/cjson
+TCC_SRC := $(abspath ../../x86_64-pc-windows-tcc)
+TCC_BUILD_DIR := ../../build/tcc
+TCC_BIN := $(TCC_BUILD_DIR)/x86_64-win32-tcc
+LIBSNARE_DIR := ../../libs/libsnare
+override CFLAGS := -std=gnu11 -Wall -Wextra -shared -nostdlib -ffreestanding -fno-builtin -isystem $(TCC_SRC)/include -I . -I $(LIBSNARE_DIR)
 
-TARGET_DIR := ../build/release
-OBJ_DIR := ../build/objects/wallpiper-protocol
-LIB := $(TARGET_DIR)/libwallpiper-protocol.a
+TARGET_DIR := ../../build/release
+DLL := $(TARGET_DIR)/dwmapi.dll
 
 SRCS := \
-	capture_socket.c \
-	ctl_protocol.c \
-	daemon_ctl_protocol.c \
-	debug_overlay.c \
-	fsutil.c \
-	monitor_geometry.c \
-	paths.c \
-	steam_paths.c
+	dllmain.c \
+	bootstrap.c \
+	imports.c \
+	libc.c \
+	util.c \
+	pe_iat.c \
+	progman.c \
+	menu.c \
+	tray.c \
+	ipc_triggers.c \
+	cursor.c \
+	dwm_exports.c \
+	waitobj.c \
+	spawn.c
 
-OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
-CJSON_OBJ := $(OBJ_DIR)/cJSON.o
+.PHONY: build build-tcc clean clean-tcc
 
-.PHONY: build clean
+build: build-tcc | $(TARGET_DIR)
+	$(TCC_BIN) $(CFLAGS) -o $(DLL) $(SRCS)
 
-build: $(LIB)
+build-tcc:
+	mkdir -p $(TCC_BUILD_DIR)
+	cd $(TCC_BUILD_DIR) && { [ -f config.mak ] || $(TCC_SRC)/configure; } && { [ -x x86_64-win32-tcc ] || $(MAKE) cross-x86_64-win32; }
 
-$(LIB): $(OBJS) $(CJSON_OBJ) | $(TARGET_DIR)
-	rm -f $@
-	ar rcs $@ $(OBJS) $(CJSON_OBJ)
-
-$(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-$(CJSON_OBJ): ../libs/cjson/cJSON.c | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-$(TARGET_DIR) $(OBJ_DIR):
+$(TARGET_DIR):
 	mkdir -p $@
 
 clean:
-	rm -rf $(OBJ_DIR) $(LIB)
+	rm -f $(DLL)
+
+clean-tcc:
+	rm -rf $(TCC_BUILD_DIR)
