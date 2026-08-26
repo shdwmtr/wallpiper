@@ -15,6 +15,8 @@ It's simple. Wallpiper is a translation layer, not a re-implementation. It doesn
 Other projects, such as [linux-wallpaperengine](https://github.com/Almamu/linux-wallpaperengine), are re-implementations. This means Wallpaper Engine's private spec/codebase is being cloned/mirrorred (largely by AI).
 By design, its far more unstable, and not actually Wallpaper Engine. 
 
+NOTE: wallpiper is early in development. Although backed by proper design, you may face breaking issues.
+
 ## Usage
 
 > When built from source, wallpiper is NOT installed to `PATH` automatically. All binaries live at `./target/release` relative to the repository root. 
