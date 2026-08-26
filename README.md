@@ -6,7 +6,8 @@ Wallpiper then metaphorically "pipes" your wallpaper (using zero-copy [dma-buf](
 
 If you find this utility/tool useful, please consider giving it a star ⭐
 
-https://github.com/user-attachments/assets/515e3a3e-0666-486c-960d-e3195a84f241
+<img width="100%" alt="video" src="https://github.com/user-attachments/assets/a1ab83e7-270f-4229-a64d-190210a1e5cc" />
+
 
 ## Why? Other projects exist? 
 
