@@ -150,6 +150,62 @@ static void *daemon_ctl_listener_thread_main(void *arg) {
   return NULL;
 }
 
+static void print_help(void) {
+  printf(
+      "usage: $ WALLPIPER_PORTAL=... WALLPIPER_... wallpiperd\n"
+      "\n"
+      "  WALLPIPER_PORTAL (*)\n"
+      "      brief:   Which portal to use: hyprland, sway, cosmic, i3, gnome, "
+      "kde.\n"
+      "\n"
+      "  WALLPIPER_STEAM_ROOT\n"
+      "      default: auto-detected (~/.local/share/Steam, ~/.steam/steam,\n"
+      "               ~/.steam/root, or the Flatpak path)\n"
+      "      brief:   Your Steam library root.\n"
+      "\n"
+      "  WALLPIPER_PROTON_BIN\n"
+      "      default: auto-detected under compatibilitytools.d/*/proton or\n"
+      "               steamapps/common/Proton */proton\n"
+      "      brief:   Path to the proton binary to run Wallpaper Engine with.\n"
+      "\n"
+      "  WALLPIPER_WE_EXE\n"
+      "      default: $WALLPIPER_STEAM_ROOT/steamapps/common/\n"
+      "               wallpaper_engine/wallpaper64.exe\n"
+      "      brief:   Path to Wallpaper Engine's executable.\n"
+      "\n"
+      "  WALLPIPER_TEMP_DIR\n"
+      "      default: /tmp/wallpiper\n"
+      "      brief:   Directory used for ephemeral, session-scoped files,\n"
+      "               control sockets, the Vulkan capture layer's search "
+      "path,\n"
+      "               tracked renderer PIDs, etc.\n"
+      "\n"
+      "  WALLPIPER_RUNTIME_DIR\n"
+      "      default: $XDG_STATE_HOME/wallpiper, or ~/.local/state/wallpiper\n"
+      "      brief:   Directory used for state that should persist across "
+      "reboots.\n"
+      "\n"
+      "  WALLPIPER_WE_UI_SCALE_FACTOR\n"
+      "      default: unset (no scaling override)\n"
+      "      brief:   Forces N scale factor on Wallpaper Engine's\n"
+      "               properties-panel process. Not auto-detected.\n"
+      "\n"
+      "  WALLPIPER_TRAY_OPTS\n"
+      "      default: native\n"
+      "      brief:   Controls how the Wallpaper Engine tray icon is "
+      "translated.\n"
+      "      options: [native, notray, passthrough]\n"
+      "              native: over org.kde.StatusNotifierItem/dbusmenu. "
+      "Supports all portals.\n"
+      "              notray: no tray rendered at all\n"
+      "         passthrough: pushes a raw legacy XEmbed tray icon, which "
+      "only\n"
+      "                      appears if your desktop runs a legacy tray "
+      "host.\n"
+      "\n"
+      "Use `wallpiperctl` to control a running daemon.\n");
+}
+
 static void run(void) {
   printf("wallpiperd starting\n");
 
@@ -194,8 +250,11 @@ static void run(void) {
 int main(int argc, char **argv) {
   setvbuf(stdout, NULL, _IOLBF, 0);
 
-  (void)argv;
   if (argc > 1) {
+    if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
+      print_help();
+      return 0;
+    }
     fprintf(stderr, "wallpiperd takes no arguments; use `wallpiperctl` "
                     "to control a running daemon\n");
     return 1;
