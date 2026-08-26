@@ -1,3 +1,15 @@
+# [1.4.0](https://github.com/shdwmtr/wallpiper/compare/v1.3.0...v1.4.0) (2026-08-26)
+
+
+### Bug Fixes
+
+* serialize protocol/wl-common sub-builds to fix parallel make race. Closes [#17](https://github.com/shdwmtr/wallpiper/issues/17) ([fea01d9](https://github.com/shdwmtr/wallpiper/commit/fea01d9b74ff102fb55bfe08d8b4e5ebcb054e1a))
+
+
+### Features
+
+* add --help/-h to wallpiperd ([efa6023](https://github.com/shdwmtr/wallpiper/commit/efa6023c8435fd19bbadd523f15f205063cc8c13))
+
 # [1.3.0](https://github.com/shdwmtr/wallpiper/compare/v1.2.2...v1.3.0) (2026-08-25)
 
 
