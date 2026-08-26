@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
 
       - name: Generate release config stub
-        run: echo '{"extends": "./.github/packages/.releaserc.json"}' > .releaserc.json
+        run: echo '{"extends":"./.github/packages/.releaserc.json"}' > .releaserc.json
 
       - name: Release
         id: semantic
