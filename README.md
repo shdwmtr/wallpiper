@@ -48,9 +48,12 @@ $ pacman -S base-devel dbus vulkan-headers vulkan-icd-loader fontconfig
 
 ## Packaging
 
+We welcome additional packaging submissions, all related packaging logic resides in `.github/packages`
+
 ### Arch Linux (AUR)
 
 Get it from the [AUR](https://aur.archlinux.org/packages/wallpiper), or compile [manually below](#building). 
+
 
 ## Building from source
 
