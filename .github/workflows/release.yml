@@ -26,15 +26,14 @@ jobs:
       - name: Generate release config stub
         run: echo '{"extends":"./.github/packages/.releaserc.json"}' > .releaserc.json
 
+      - name: Install release plugins
+        run: npm install --no-save --no-audit --silent semantic-release@24.2.9 @semantic-release/changelog@6.0.3 @semantic-release/exec@7.1.0 @semantic-release/git@10.0.1
+
       - name: Release
         id: semantic
         uses: cycjimmy/semantic-release-action@v4
         with:
           semantic_version: 24.2.9
-          extra_plugins: |
-            @semantic-release/changelog@6.0.3
-            @semantic-release/exec@7.1.0
-            @semantic-release/git@10.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
