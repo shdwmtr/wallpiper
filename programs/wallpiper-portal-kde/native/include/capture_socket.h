@@ -41,7 +41,8 @@ public:
 
 signals:
   void bufReceived(quint32 slot, quint32 width, quint32 height, quint32 stride,
-                   quint64 modifier, int fd, int syncFd);
+                   quint64 modifier, bool hasGeometry, qint32 geomX,
+                   qint32 geomY, int fd, int syncFd);
   void frameReceived(quint32 slot, int syncFd);
   void shmReceived(quint32 width, quint32 height, quint32 stride, int fd);
 

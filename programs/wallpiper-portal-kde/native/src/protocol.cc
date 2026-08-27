@@ -119,6 +119,11 @@ std::optional<SocketEvent> parseEvent(const std::string &header,
       event.height = static_cast<uint32_t>(std::stoul(parts[3]));
       event.stride = static_cast<uint32_t>(std::stoul(parts[5]));
       event.modifier = std::stoull(parts[6]);
+      if (parts.size() >= 9) {
+        event.hasGeometry = true;
+        event.geomX = static_cast<int32_t>(std::stol(parts[7]));
+        event.geomY = static_cast<int32_t>(std::stol(parts[8]));
+      }
       event.fd = fds[0];
       event.syncFd = fds.size() > 1 ? fds[1] : -1;
       return event;

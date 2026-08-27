@@ -82,6 +82,40 @@ QString x11OutputForSize(quint32 width, quint32 height) {
   XRRFreeScreenResources(res);
   return found;
 }
+
+QString x11OutputForPosition(qint32 x, qint32 y) {
+  static Display *dpy = XOpenDisplay(nullptr);
+  if (!dpy) {
+    return QString();
+  }
+
+  Window root = DefaultRootWindow(dpy);
+  XRRScreenResources *res = XRRGetScreenResourcesCurrent(dpy, root);
+  if (!res) {
+    return QString();
+  }
+
+  QString found;
+  for (int i = 0; i < res->noutput && found.isEmpty(); i++) {
+    XRROutputInfo *outputInfo = XRRGetOutputInfo(dpy, res, res->outputs[i]);
+    if (!outputInfo) {
+      continue;
+    }
+    if (outputInfo->connection == RR_Connected && outputInfo->crtc != None) {
+      XRRCrtcInfo *crtcInfo = XRRGetCrtcInfo(dpy, res, outputInfo->crtc);
+      if (crtcInfo) {
+        if (crtcInfo->x == x && crtcInfo->y == y) {
+          found = QString::fromUtf8(outputInfo->name);
+        }
+        XRRFreeCrtcInfo(crtcInfo);
+      }
+    }
+    XRRFreeOutputInfo(outputInfo);
+  }
+
+  XRRFreeScreenResources(res);
+  return found;
+}
 } // namespace
 
 CaptureCoordinator *CaptureCoordinator::instance() {
@@ -95,9 +129,13 @@ CaptureCoordinator::CaptureCoordinator(QObject *parent)
       m_cursorTimer(new QTimer(this)) {
   connect(m_captureSocket, &CaptureSocket::bufReceived, this,
           [this](quint32 slot, quint32 width, quint32 height, quint32 stride,
-                 quint64 modifier, int fd, int syncFd) {
+                 quint64 modifier, bool hasGeometry, qint32 geomX, qint32 geomY,
+                 int fd, int syncFd) {
             uint32_t channel = slot / kCaptureSlotCount;
             WallpaperCaptureItem *item = channelItem(channel);
+            if (!item && hasGeometry) {
+              item = claimItemForPosition(channel, geomX, geomY);
+            }
             if (!item) {
               item = claimItemForSize(channel, width, height);
             }
@@ -256,6 +294,38 @@ WallpaperCaptureItem *CaptureCoordinator::claimItemForSize(uint32_t channel,
              << ") not found among registered wallpaper items, or already "
                 "claimed -- cannot bind channel"
              << channel;
+  return nullptr;
+}
+
+WallpaperCaptureItem *
+CaptureCoordinator::claimItemForPosition(uint32_t channel, qint32 x, qint32 y) {
+  QString outputName = x11OutputForPosition(x, y);
+  if (outputName.isEmpty()) {
+    return nullptr;
+  }
+
+  for (auto *item : m_items) {
+    bool alreadyClaimed = false;
+    for (const auto &[boundChannel, boundItem] : m_channelItems) {
+      if (boundItem == item) {
+        alreadyClaimed = true;
+        break;
+      }
+    }
+    if (alreadyClaimed) {
+      continue;
+    }
+    QScreen *screen = item->window() ? item->window()->screen() : nullptr;
+    if (screen && screen->name() == outputName) {
+      m_channelItems[channel] = item;
+      qInfo() << "[coordinator] channel" << channel << "bound to screen"
+              << outputName << "at position" << x << "," << y;
+      return item;
+    }
+  }
+  qWarning() << "[coordinator] XRandR output" << outputName << "(matched"
+             << "position" << x << "," << y
+             << ") not found among registered wallpaper items!" << channel;
   return nullptr;
 }
 
