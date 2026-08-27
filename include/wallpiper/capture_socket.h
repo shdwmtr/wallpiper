@@ -41,6 +41,9 @@ typedef struct {
   uint32_t height;
   uint32_t stride;
   uint64_t modifier;
+  bool has_geometry;
+  int32_t geom_x;
+  int32_t geom_y;
   int fds[WP_CAPTURE_MAX_FDS];
   int nfds;
 } wp_capture_event_t;
@@ -56,6 +59,8 @@ void wp_capture_link_destroy(wp_capture_link_t *link);
 bool wp_capture_link_send_buf(wp_capture_link_t *link, uint32_t slot,
                               uint32_t width, uint32_t height,
                               uint32_t format_raw, uint32_t stride,
-                              uint64_t modifier, int image_fd, int sync_fd);
+                              uint64_t modifier, bool has_geometry,
+                              int32_t geom_x, int32_t geom_y, int image_fd,
+                              int sync_fd);
 bool wp_capture_link_send_frame(wp_capture_link_t *link, uint32_t slot,
                                 int sync_fd);

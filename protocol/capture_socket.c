@@ -139,6 +139,8 @@ static bool parse_event(const char *header, const int *fds, int nfds,
     char *format_s = strtok_r(NULL, " \t", &saveptr);
     char *stride_s = strtok_r(NULL, " \t", &saveptr);
     char *modifier_s = strtok_r(NULL, " \t", &saveptr);
+    char *geom_x_s = strtok_r(NULL, " \t", &saveptr);
+    char *geom_y_s = strtok_r(NULL, " \t", &saveptr);
     if (!slot_s || !width_s || !height_s || !format_s || !stride_s ||
         !modifier_s || nfds < 1) {
       return false;
@@ -149,6 +151,11 @@ static bool parse_event(const char *header, const int *fds, int nfds,
     out->height = (uint32_t)strtoul(height_s, NULL, 10);
     out->stride = (uint32_t)strtoul(stride_s, NULL, 10);
     out->modifier = (uint64_t)strtoull(modifier_s, NULL, 10);
+    if (geom_x_s && geom_y_s) {
+      out->has_geometry = true;
+      out->geom_x = (int32_t)strtol(geom_x_s, NULL, 10);
+      out->geom_y = (int32_t)strtol(geom_y_s, NULL, 10);
+    }
     out->fds[0] = fds[0];
     out->nfds = 1;
     if (nfds > 1) {
@@ -312,10 +319,18 @@ static bool send_with_fds(wp_capture_link_t *link, const char *header,
 bool wp_capture_link_send_buf(wp_capture_link_t *link, uint32_t slot,
                               uint32_t width, uint32_t height,
                               uint32_t format_raw, uint32_t stride,
-                              uint64_t modifier, int image_fd, int sync_fd) {
-  char header[128];
-  snprintf(header, sizeof(header), "BUF %u %u %u %u %u %llu\n", slot, width,
-           height, format_raw, stride, (unsigned long long)modifier);
+                              uint64_t modifier, bool has_geometry,
+                              int32_t geom_x, int32_t geom_y, int image_fd,
+                              int sync_fd) {
+  char header[160];
+  if (has_geometry) {
+    snprintf(header, sizeof(header), "BUF %u %u %u %u %u %llu %d %d\n", slot,
+             width, height, format_raw, stride,
+             (unsigned long long)modifier, geom_x, geom_y);
+  } else {
+    snprintf(header, sizeof(header), "BUF %u %u %u %u %u %llu\n", slot, width,
+             height, format_raw, stride, (unsigned long long)modifier);
+  }
 
   int fds[WP_CAPTURE_MAX_FDS];
   int nfds = 0;

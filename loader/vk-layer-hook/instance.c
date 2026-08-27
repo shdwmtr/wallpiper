@@ -26,10 +26,65 @@
 #include "logging.h"
 #include "process.h"
 
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <vulkan/vk_layer.h>
+
+typedef struct {
+  VkStructureType sType;
+  const void *pNext;
+  uint32_t flags;
+  void *dpy;
+  unsigned long window;
+} wp_xlib_surface_create_info_t;
+
+#ifndef VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR
+#define VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR 1000004000
+#endif
+
+typedef VkResult(VKAPI_PTR *PFN_wp_vkCreateXlibSurfaceKHR)(
+    VkInstance instance, const wp_xlib_surface_create_info_t *pCreateInfo,
+    const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface);
+
+#define WP_MAX_TRACKED_SURFACES 16
+
+typedef struct {
+  bool in_use;
+  VkSurfaceKHR surface;
+  unsigned long xid;
+} wp_surface_xid_entry_t;
+
+static pthread_mutex_t g_surface_xid_mutex = PTHREAD_MUTEX_INITIALIZER;
+static wp_surface_xid_entry_t g_surface_xids[WP_MAX_TRACKED_SURFACES];
+
+void wp_surface_xid_register(VkSurfaceKHR surface, unsigned long xid) {
+  pthread_mutex_lock(&g_surface_xid_mutex);
+  for (size_t i = 0; i < WP_MAX_TRACKED_SURFACES; i++) {
+    if (!g_surface_xids[i].in_use) {
+      g_surface_xids[i].in_use = true;
+      g_surface_xids[i].surface = surface;
+      g_surface_xids[i].xid = xid;
+      break;
+    }
+  }
+  pthread_mutex_unlock(&g_surface_xid_mutex);
+}
+
+bool wp_surface_xid_lookup(VkSurfaceKHR surface, unsigned long *out_xid) {
+  bool found = false;
+  pthread_mutex_lock(&g_surface_xid_mutex);
+  for (size_t i = 0; i < WP_MAX_TRACKED_SURFACES; i++) {
+    if (g_surface_xids[i].in_use && g_surface_xids[i].surface == surface) {
+      *out_xid = g_surface_xids[i].xid;
+      found = true;
+      break;
+    }
+  }
+  pthread_mutex_unlock(&g_surface_xid_mutex);
+  return found;
+}
 
 static const char *const REQUIRED_DEVICE_EXTENSIONS[] = {
     "VK_EXT_image_drm_format_modifier",
@@ -47,6 +102,7 @@ static PFN_vkGetPhysicalDeviceMemoryProperties
     g_get_physical_device_memory_properties = NULL;
 static PFN_vkGetPhysicalDeviceFormatProperties2
     g_get_physical_device_format_properties2 = NULL;
+static PFN_wp_vkCreateXlibSurfaceKHR g_next_create_xlib_surface_khr = NULL;
 
 void wp_global_instance_set(VkInstance instance,
                             PFN_vkGetInstanceProcAddr next_gipa) {
@@ -63,6 +119,22 @@ void wp_global_instance_set(VkInstance instance,
   g_get_physical_device_format_properties2 =
       (PFN_vkGetPhysicalDeviceFormatProperties2)next_gipa(
           instance, "vkGetPhysicalDeviceFormatProperties2");
+  g_next_create_xlib_surface_khr = (PFN_wp_vkCreateXlibSurfaceKHR)next_gipa(
+      instance, "vkCreateXlibSurfaceKHR");
+}
+
+static VKAPI_ATTR VkResult VKAPI_CALL wp_CreateXlibSurfaceKHR(
+    VkInstance instance, const wp_xlib_surface_create_info_t *pCreateInfo,
+    const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface) {
+  if (!g_next_create_xlib_surface_khr) {
+    return VK_ERROR_INITIALIZATION_FAILED;
+  }
+  VkResult res = g_next_create_xlib_surface_khr(instance, pCreateInfo,
+                                                pAllocator, pSurface);
+  if (res == VK_SUCCESS && wp_capture_is_target_process()) {
+    wp_surface_xid_register(*pSurface, pCreateInfo->window);
+  }
+  return res;
 }
 
 bool wp_global_instance_get_memory_properties(
@@ -131,6 +203,7 @@ VKAPI_ATTR void VKAPI_CALL wp_DestroyInstance(
     g_next_destroy_instance = NULL;
     g_get_physical_device_memory_properties = NULL;
     g_get_physical_device_format_properties2 = NULL;
+    g_next_create_xlib_surface_khr = NULL;
   }
 }
 
@@ -238,6 +311,7 @@ vkGetInstanceProcAddr(VkInstance instance, const char *pName) {
       {"vkDestroyInstance", (PFN_vkVoidFunction)wp_DestroyInstance},
       {"vkCreateDevice", (PFN_vkVoidFunction)wp_CreateDevice},
       {"vkGetDeviceProcAddr", (PFN_vkVoidFunction)vkGetDeviceProcAddr},
+      {"vkCreateXlibSurfaceKHR", (PFN_vkVoidFunction)wp_CreateXlibSurfaceKHR},
   };
   for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); i++) {
     if (strcmp(pName, table[i].name) == 0) {
