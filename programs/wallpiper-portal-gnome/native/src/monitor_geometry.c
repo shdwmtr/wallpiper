@@ -182,6 +182,44 @@ gboolean wallpiper_x11_output_for_size(guint32 width, guint32 height,
   return found;
 }
 
+gboolean wallpiper_x11_output_for_position(gint32 x, gint32 y, char *name_out,
+                                           size_t name_out_len) {
+  name_out[0] = '\0';
+
+  Display *dpy = get_x11_display();
+  if (!dpy) {
+    return FALSE;
+  }
+
+  Window root = DefaultRootWindow(dpy);
+  XRRScreenResources *res = XRRGetScreenResourcesCurrent(dpy, root);
+  if (!res) {
+    return FALSE;
+  }
+
+  gboolean found = FALSE;
+  for (int i = 0; i < res->noutput && !found; i++) {
+    XRROutputInfo *output_info = XRRGetOutputInfo(dpy, res, res->outputs[i]);
+    if (!output_info) {
+      continue;
+    }
+    if (output_info->connection == RR_Connected && output_info->crtc != None) {
+      XRRCrtcInfo *crtc_info = XRRGetCrtcInfo(dpy, res, output_info->crtc);
+      if (crtc_info) {
+        if (crtc_info->x == x && crtc_info->y == y) {
+          g_strlcpy(name_out, output_info->name, name_out_len);
+          found = TRUE;
+        }
+        XRRFreeCrtcInfo(crtc_info);
+      }
+    }
+    XRRFreeOutputInfo(output_info);
+  }
+
+  XRRFreeScreenResources(res);
+  return found;
+}
+
 gchar *wallpiper_monitor_geometry_to_json(const WallpiperMonitorGeometry *g) {
   return g_strdup_printf(
       "{\"x\":%d,\"y\":%d,\"width\":%u,\"height\":%u,"

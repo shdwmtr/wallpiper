@@ -99,6 +99,45 @@ static gboolean find_monitor_for_size(WallpiperPortalState *state,
   return FALSE;
 }
 
+static gboolean find_monitor_for_position(WallpiperPortalState *state,
+                                          gint32 x, gint32 y,
+                                          WallpiperMonitorGeometry *out) {
+  char x11_name[64];
+  if (!wallpiper_x11_output_for_position(x, y, x11_name, sizeof(x11_name))) {
+    return FALSE;
+  }
+
+  WallpiperMonitorGeometry monitors[WP_MAX_CAPTURE_CHANNELS];
+  char names[WP_MAX_CAPTURE_CHANNELS][64];
+  guint count = 0;
+  wallpiper_monitor_detect_all_named(state->backend, monitors, &names[0][0],
+                                     sizeof(names[0]), WP_MAX_CAPTURE_CHANNELS,
+                                     &count);
+
+  for (guint j = 0; j < count; j++) {
+    if (g_strcmp0(names[j], x11_name) != 0) {
+      continue;
+    }
+    for (int i = 0; i < WP_MAX_CAPTURE_CHANNELS; i++) {
+      if (state->channels[i].active &&
+          state->channels[i].monitor.x == monitors[j].x &&
+          state->channels[i].monitor.y == monitors[j].y) {
+        g_warning("wallpiper-gnome: XRandR output %s (Mutter monitor at "
+                  "%d,%d) already claimed by another channel",
+                  x11_name, monitors[j].x, monitors[j].y);
+        return FALSE;
+      }
+    }
+    *out = monitors[j];
+    return TRUE;
+  }
+
+  g_warning("wallpiper-gnome: XRandR output %s (matched position %d,%d) not "
+            "found among Mutter's monitors",
+            x11_name, x, y);
+  return FALSE;
+}
+
 static ClutterActor *create_channel_actor(WallpiperPortalState *state,
                                           const WallpiperMonitorGeometry *m) {
   ClutterActor *actor = clutter_actor_new();
@@ -180,6 +219,15 @@ static void handle_buf_message(WallpiperPortalState *state, char **parts,
   guint32 stride = (guint32)g_ascii_strtoull(parts[5], NULL, 10);
   guint64 modifier = g_ascii_strtoull(parts[6], NULL, 10);
 
+  gboolean has_geometry = FALSE;
+  gint32 geom_x = 0;
+  gint32 geom_y = 0;
+  if (n_parts >= 9) {
+    has_geometry = TRUE;
+    geom_x = (gint32)g_ascii_strtoll(parts[7], NULL, 10);
+    geom_y = (gint32)g_ascii_strtoll(parts[8], NULL, 10);
+  }
+
   int dmabuf_fd = n_fds > 0 ? fds[0] : -1;
   int sync_fd = n_fds > 1 ? fds[1] : -1;
   wallpiper_egl_wait_sync_fd(state->egl_display, sync_fd);
@@ -198,7 +246,14 @@ static void handle_buf_message(WallpiperPortalState *state, char **parts,
 
   if (!ch->active) {
     WallpiperMonitorGeometry monitor;
-    if (!find_monitor_for_size(state, width, height, &monitor)) {
+    gboolean matched = FALSE;
+    if (has_geometry) {
+      matched = find_monitor_for_position(state, geom_x, geom_y, &monitor);
+    }
+    if (!matched) {
+      matched = find_monitor_for_size(state, width, height, &monitor);
+    }
+    if (!matched) {
       g_warning("wallpiper-gnome: no monitor available for new channel %u "
                 "(%ux%u), dropping",
                 channel_idx, width, height);
@@ -209,9 +264,9 @@ static void handle_buf_message(WallpiperPortalState *state, char **parts,
     ch->display_actor = create_channel_actor(state, &monitor);
     ch->active = TRUE;
     g_message("wallpiper-gnome: channel %u bound to monitor at (%d,%d) %ux%u "
-              "for stream %ux%u",
+              "for stream %ux%u%s",
               channel_idx, monitor.x, monitor.y, monitor.width, monitor.height,
-              width, height);
+              width, height, has_geometry ? " (matched by real window position)" : "");
   }
 
   g_message("wallpiper-gnome: BUF channel=%u local=%u %ux%u stride=%u "

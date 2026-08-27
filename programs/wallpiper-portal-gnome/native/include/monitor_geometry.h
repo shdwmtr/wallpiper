@@ -50,6 +50,9 @@ void wallpiper_monitor_detect_all_named(MetaBackend *backend,
 gboolean wallpiper_x11_output_for_size(guint32 width, guint32 height,
                                        char *name_out, size_t name_out_len);
 
+gboolean wallpiper_x11_output_for_position(gint32 x, gint32 y, char *name_out,
+                                           size_t name_out_len);
+
 gchar *
 wallpiper_monitor_geometry_to_json(const WallpiperMonitorGeometry *geometry);
 G_END_DECLS
