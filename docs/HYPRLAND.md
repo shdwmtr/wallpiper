@@ -19,4 +19,4 @@ $ pacman -S wayland wayland-protocols
 $ make build-hyprland
 ```
 
-[Next step (Usage)](../README.md#usage)
+[Jump back to README](../#usage5)

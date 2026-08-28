@@ -26,4 +26,4 @@ $ make install-gnome
 
 Log out and back in, then ensure the extension is enabled.
 
-[Next step (Usage)](../README.md#usage)
+[Jump back to README](../#usage5)

@@ -23,4 +23,4 @@ $ pacman -S wayland wayland-protocols
 $ make build-cosmic
 ```
 
-[Next step (Usage)](../README.md#usage)
+[Jump back to README](../#usage5)
