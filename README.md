@@ -249,47 +249,51 @@ $ make build-i3
 ## Environment Variables 
 `wallpiperd` has no persistent configuration, all variability is mutable through environment variables. 
 
-#### `WALLPIPER_PORTAL` (required)
-  Which portal to use: `hyprland`, `sway`, `cosmic`, `i3`, `gnome`, `kde`
+```
+usage: $ WALLPIPER_PORTAL=... WALLPIPER_... wallpiperd
 
-#### `WALLPIPER_STEAM_ROOT`
-  **Default:** auto-detected (`~/.local/share/Steam`, `~/.steam/steam`, `~/.steam/root`, or the Flatpak path)
+  WALLPIPER_PORTAL (*)
+      brief:   Which portal to use: hyprland, sway, cosmic, i3, gnome, kde.
 
-  Your Steam library root
+  WALLPIPER_STEAM_ROOT
+      default: auto-detected (~/.local/share/Steam, ~/.steam/steam,
+               ~/.steam/root, or the Flatpak path)
+      brief:   Your Steam library root.
 
-#### `WALLPIPER_PROTON_BIN`
-  **Default:** auto-detected under `compatibilitytools.d/*/proton` or `steamapps/common/Proton */proton`
+  WALLPIPER_PROTON_BIN
+      default: auto-detected under compatibilitytools.d/*/proton or
+               steamapps/common/Proton */proton
+      brief:   Path to the proton binary to run Wallpaper Engine with.
 
-  Path to the `proton` binary to run Wallpaper Engine with
+  WALLPIPER_WE_EXE
+      default: $WALLPIPER_STEAM_ROOT/steamapps/common/
+               wallpaper_engine/wallpaper64.exe
+      brief:   Path to Wallpaper Engine's executable.
 
-#### `WALLPIPER_WE_EXE`
-  **Default:** `$STEAM_ROOT/steamapps/common/wallpaper_engine/wallpaper64.exe`
+  WALLPIPER_TEMP_DIR
+      default: /tmp/wallpiper
+      brief:   Directory used for ephemeral, session-scoped files,
+               control sockets, the Vulkan capture layer's search path,
+               tracked renderer PIDs, etc.
 
-  Path to Wallpaper Engine's executable
+  WALLPIPER_RUNTIME_DIR
+      default: $XDG_STATE_HOME/wallpiper, or ~/.local/state/wallpiper
+      brief:   Directory used for state that should persist across reboots.
 
-#### `WALLPIPER_TEMP_DIR`
-  **Default:** `/tmp/wallpiper`
+  WALLPIPER_WE_UI_SCALE_FACTOR
+      default: unset (no scaling override)
+      brief:   Forces N scale factor on Wallpaper Engine's
+               properties-panel process. Not auto-detected.
 
-  Directory used for ephemeral, session-scoped files (control sockets, the Vulkan capture layer's search path, tracked renderer PIDs)
-
-#### `WALLPIPER_RUNTIME_DIR`
-  **Default:** `$XDG_STATE_HOME/wallpiper`, or `~/.local/state/wallpiper`
-
-  Directory used for state that should persist across reboots (e.g. the applied-DPI marker)
-
-#### `WALLPIPER_WE_UI_SCALE_FACTOR`
-  **Default:** unset (no scaling override)
-
-  Forces N scale factor on Wallpaper Engines properties-panel process. Not auto-detected.
-
-#### `WALLPIPER_TRAY_OPTS`
-  **Default:** `native`
-
-  Controls how the Wallpaper Engine tray icon is translated: `native`, `notray`, `passthrough`
-
-  - `native` over `org.kde.StatusNotifierItem`/`dbusmenu` (supports all portals)
-  - `notray` no tray rendered at all. 
-  - `passthrough` pushes a raw legacy XEmbed tray icon, which only appears if your desktop runs a legacy tray host.
+  WALLPIPER_TRAY_OPTS
+      default: native
+      brief:   Controls how the Wallpaper Engine tray icon is translated.
+      options: [native, notray, passthrough]
+              native: over org.kde.StatusNotifierItem/dbusmenu. Supports all portals.
+              notray: no tray rendered at all
+         passthrough: pushes a raw legacy XEmbed tray icon, which only
+                      appears if your desktop runs a legacy tray host.
+```
 
 ## Command API
 
@@ -315,27 +319,36 @@ standalone commands:
 
 ## Common Issues
 
+### SMPTE-(EG)-1-1990 on video based wallpapers
+
+> <img height="200" alt="image" src="https://github.com/user-attachments/assets/46f9a6cf-0991-4a9d-bfaf-4d29b7afce57" />
+> 
+> Wine's `mfplat` falls back to rendering (EG) 1-1990 when a proprietary codec is not supported. 
+> This is outside the scope of `wallpiper`. Many existing proton based compatibility layers have fixes builtin.
+> 
+> For instance:
+> 
+> * [GE-Proton11-5-x86_64](https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/GE-Proton11-5) (`winegstreamer` is the key library)
+
 ### Black Screen/Can't open Wallpaper Engine
 
-Likely an issue with your underling translation layer. Only GE-Proton-11 and Valve-Proton-11 have been tested working. 
-
-All users experiencing this issue fixed it upgrading to a later version of Proton. 
+> Likely an issue with your underling translation layer. Only GE-Proton-11 and Valve-Proton-11 have been tested working. 
+>
+> All users experiencing this issue fixed it upgrading to a later version of Proton. 
 
 ### GStreamer-WARNING: libbz2.so.1.0: No such file or directory (Fedora)
 
- This error is Fedora-specific and is only seen at runtime, causing intermittent crashes in Wallpaper Engine even when idle. It can be fixed by creating a symbolic link for the critical library `libbz2.so.1.0`, as it is named `libbz2.so.1` in Fedora.
-
- On standard Fedora distributions:
-
- ```
-ln -s /usr/lib64/libbz2.so.1 /usr/lib64/libbz2.so.1.0
- ```
- 
- 
-  Immutable Fedora distributions (Fedora Silverblue, Aurora, Bazzite, etc.) will have to link this library to a user-accessible location. See [here](https://github.com/ublue-os/bazzite/issues/4978#issuecomment-4566369555) for an example of how to achieve this.
-
-  It is also worth ensuring GStreamer plugins are correctly installed. Check Freedesktop's installation instructions [here](https://gstreamer.freedesktop.org/documentation/installing/on-linux.html?gi-language=c).
-
+> This error is Fedora-specific and is only seen at runtime, causing intermittent crashes in Wallpaper Engine even when idle. It can be fixed by creating a symbolic link for the > critical library `libbz2.so.1.0`, as it is named `libbz2.so.1` in Fedora.
+> 
+> On standard Fedora distributions:
+> 
+> ```
+> ln -s /usr/lib64/libbz2.so.1 /usr/lib64/libbz2.so.1.0
+> ```
+> 
+> Immutable Fedora distributions (Fedora Silverblue, Aurora, Bazzite, etc.) will have to link this library to a user-accessible location. See [here](https://github.com/ublue-os/bazzite/issues/4978#issuecomment-4566369555) for an example of how to achieve this.
+> 
+> It is also worth ensuring GStreamer plugins are correctly installed. Check Freedesktop's installation instructions [here](https://gstreamer.freedesktop.org/documentation/installing/on-linux.html?gi-language=c).
 
 ## Contributing
 
