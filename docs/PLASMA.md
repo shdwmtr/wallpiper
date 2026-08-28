@@ -28,4 +28,4 @@ $ make install-kde
 2. Open the Wallpaper type dropdown at the top of the panel
 3. Select Wallpiper
 
-[Jump back to README](../#usage5)
+[Jump back to README](../README.md#usage5)

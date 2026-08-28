@@ -33,4 +33,4 @@ $ pacman -S wayland wayland-protocols
 $ make build-sway
 ```
 
-[Jump back to README](../#usage5)
+[Jump back to README](../README.md#usage5)

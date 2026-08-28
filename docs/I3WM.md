@@ -18,4 +18,4 @@ $ pacman -S libxcb
 $ make build-i3
 ```
 
-[Jump back to README](../#usage5)
+[Jump back to README](../README.md#usage5)
