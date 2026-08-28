@@ -37,9 +37,6 @@
 
 #include <unistd.h>
 
-#include <X11/Xlib.h>
-#include <X11/extensions/Xrandr.h>
-
 namespace WallpiperKde {
 
 namespace {
@@ -47,75 +44,6 @@ constexpr int kCursorSampleIntervalMs = 8;
 
 /* must match loader/vk-layer-hook/config.h */
 constexpr uint32_t kCaptureSlotCount = 3;
-
-QString x11OutputForSize(quint32 width, quint32 height) {
-  static Display *dpy = XOpenDisplay(nullptr);
-  if (!dpy) {
-    return QString();
-  }
-
-  Window root = DefaultRootWindow(dpy);
-  XRRScreenResources *res = XRRGetScreenResourcesCurrent(dpy, root);
-  if (!res) {
-    return QString();
-  }
-
-  QString found;
-  for (int i = 0; i < res->noutput && found.isEmpty(); i++) {
-    XRROutputInfo *outputInfo = XRRGetOutputInfo(dpy, res, res->outputs[i]);
-    if (!outputInfo) {
-      continue;
-    }
-    if (outputInfo->connection == RR_Connected && outputInfo->crtc != None) {
-      XRRCrtcInfo *crtcInfo = XRRGetCrtcInfo(dpy, res, outputInfo->crtc);
-      if (crtcInfo) {
-        if (static_cast<quint32>(crtcInfo->width) == width &&
-            static_cast<quint32>(crtcInfo->height) == height) {
-          found = QString::fromUtf8(outputInfo->name);
-        }
-        XRRFreeCrtcInfo(crtcInfo);
-      }
-    }
-    XRRFreeOutputInfo(outputInfo);
-  }
-
-  XRRFreeScreenResources(res);
-  return found;
-}
-
-QString x11OutputForPosition(qint32 x, qint32 y) {
-  static Display *dpy = XOpenDisplay(nullptr);
-  if (!dpy) {
-    return QString();
-  }
-
-  Window root = DefaultRootWindow(dpy);
-  XRRScreenResources *res = XRRGetScreenResourcesCurrent(dpy, root);
-  if (!res) {
-    return QString();
-  }
-
-  QString found;
-  for (int i = 0; i < res->noutput && found.isEmpty(); i++) {
-    XRROutputInfo *outputInfo = XRRGetOutputInfo(dpy, res, res->outputs[i]);
-    if (!outputInfo) {
-      continue;
-    }
-    if (outputInfo->connection == RR_Connected && outputInfo->crtc != None) {
-      XRRCrtcInfo *crtcInfo = XRRGetCrtcInfo(dpy, res, outputInfo->crtc);
-      if (crtcInfo) {
-        if (crtcInfo->x == x && crtcInfo->y == y) {
-          found = QString::fromUtf8(outputInfo->name);
-        }
-        XRRFreeCrtcInfo(crtcInfo);
-      }
-    }
-    XRRFreeOutputInfo(outputInfo);
-  }
-
-  XRRFreeScreenResources(res);
-  return found;
-}
 } // namespace
 
 CaptureCoordinator *CaptureCoordinator::instance() {
@@ -263,13 +191,6 @@ WallpaperCaptureItem *CaptureCoordinator::channelItem(uint32_t channel) const {
 WallpaperCaptureItem *CaptureCoordinator::claimItemForSize(uint32_t channel,
                                                            quint32 width,
                                                            quint32 height) {
-  QString outputName = x11OutputForSize(width, height);
-  if (outputName.isEmpty()) {
-    qWarning() << "[coordinator] XRandR has no output currently sized" << width
-               << "x" << height << "-- cannot bind channel" << channel;
-    return nullptr;
-  }
-
   for (auto *item : m_items) {
     bool alreadyClaimed = false;
     for (const auto &[boundChannel, boundItem] : m_channelItems) {
@@ -281,29 +202,25 @@ WallpaperCaptureItem *CaptureCoordinator::claimItemForSize(uint32_t channel,
     if (alreadyClaimed) {
       continue;
     }
-    QScreen *screen = item->window() ? item->window()->screen() : nullptr;
-    if (screen && screen->name() == outputName) {
+    std::optional<WallpiperProtocol::MonitorGeometry> geometry =
+        item->currentGeometry();
+    if (geometry && geometry->width == width && geometry->height == height) {
       m_channelItems[channel] = item;
+      QScreen *screen = item->window() ? item->window()->screen() : nullptr;
       qInfo() << "[coordinator] channel" << channel << "bound to screen"
-              << outputName << "for stream" << width << "x" << height;
+              << (screen ? screen->name() : QStringLiteral("<unknown>"))
+              << "for stream" << width << "x" << height;
       return item;
     }
   }
-  qWarning() << "[coordinator] XRandR output" << outputName << "(matched"
+  qWarning() << "[coordinator] no registered wallpaper item currently sized"
              << width << "x" << height
-             << ") not found among registered wallpaper items, or already "
-                "claimed -- cannot bind channel"
-             << channel;
+             << "(or already claimed) -- cannot bind channel" << channel;
   return nullptr;
 }
 
 WallpaperCaptureItem *
 CaptureCoordinator::claimItemForPosition(uint32_t channel, qint32 x, qint32 y) {
-  QString outputName = x11OutputForPosition(x, y);
-  if (outputName.isEmpty()) {
-    return nullptr;
-  }
-
   for (auto *item : m_items) {
     bool alreadyClaimed = false;
     for (const auto &[boundChannel, boundItem] : m_channelItems) {
@@ -315,17 +232,20 @@ CaptureCoordinator::claimItemForPosition(uint32_t channel, qint32 x, qint32 y) {
     if (alreadyClaimed) {
       continue;
     }
-    QScreen *screen = item->window() ? item->window()->screen() : nullptr;
-    if (screen && screen->name() == outputName) {
+    std::optional<WallpiperProtocol::MonitorGeometry> geometry =
+        item->currentGeometry();
+    if (geometry && geometry->x == x && geometry->y == y) {
       m_channelItems[channel] = item;
+      QScreen *screen = item->window() ? item->window()->screen() : nullptr;
       qInfo() << "[coordinator] channel" << channel << "bound to screen"
-              << outputName << "at position" << x << "," << y;
+              << (screen ? screen->name() : QStringLiteral("<unknown>"))
+              << "at position" << x << "," << y;
       return item;
     }
   }
-  qWarning() << "[coordinator] XRandR output" << outputName << "(matched"
-             << "position" << x << "," << y
-             << ") not found among registered wallpaper items!" << channel;
+  qWarning() << "[coordinator] no registered wallpaper item at position" << x
+             << "," << y << "(or already claimed) -- cannot bind channel"
+             << channel;
   return nullptr;
 }
 
