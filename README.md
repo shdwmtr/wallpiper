@@ -1,13 +1,12 @@
 # wallpiper 
 
-An 100kb native Wallpaper Engine translation layer for GNU/Linux based compositors, without re-inventing the wheel. Proton does most of the heavy lifting, while wallpiper re-implements/patches niche portions of the PE/COFF Windows API Wallpaper Engine needs. 
+A light weight [Wallpaper Engine](https://store.steampowered.com/app/431960/Wallpaper_Engine/) translation layer for GNU/Linux based compositors without re-inventing the wheel. Proton does most of the heavy lifting, while wallpiper re-implements/patches niche portions of the PE/COFF Windows API Wallpaper Engine needs. 
 
 Wallpiper then metaphorically "pipes" your wallpaper (using zero-copy [dma-buf](https://docs.kernel.org/driver-api/dma-buf.html)) from an internal frame buffer to a desktop portal. No overhead. 
 
 If you find this utility/tool useful, please consider giving it a star ⭐
 
-<img width="100%" alt="video" src="https://github.com/user-attachments/assets/a1ab83e7-270f-4229-a64d-190210a1e5cc" />
-
+[[video showcase]](https://streamable.com/3hbykh)
 
 ## Why? Other projects exist? 
 
@@ -317,38 +316,9 @@ standalone commands:
   check-config
 ```
 
-## Common Issues
+## Troubleshooting
 
-### SMPTE-(EG)-1-1990 on video based wallpapers
-
-> <img height="200" alt="image" src="https://github.com/user-attachments/assets/46f9a6cf-0991-4a9d-bfaf-4d29b7afce57" />
-> 
-> Wine's `mfplat` falls back to rendering (EG) 1-1990 when a proprietary codec is not supported. 
-> This is outside the scope of `wallpiper`. Many existing proton based compatibility layers have fixes builtin.
-> 
-> For instance:
-> 
-> * [GE-Proton11-5-x86_64](https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/GE-Proton11-5) (`winegstreamer` is the key library)
-
-### Black Screen/Can't open Wallpaper Engine
-
-> Likely an issue with your underling translation layer. Only GE-Proton-11 and Valve-Proton-11 have been tested working. 
->
-> All users experiencing this issue fixed it upgrading to a later version of Proton. 
-
-### GStreamer-WARNING: libbz2.so.1.0: No such file or directory (Fedora)
-
-> This error is Fedora-specific and is only seen at runtime, causing intermittent crashes in Wallpaper Engine even when idle. It can be fixed by creating a symbolic link for the > critical library `libbz2.so.1.0`, as it is named `libbz2.so.1` in Fedora.
-> 
-> On standard Fedora distributions:
-> 
-> ```
-> ln -s /usr/lib64/libbz2.so.1 /usr/lib64/libbz2.so.1.0
-> ```
-> 
-> Immutable Fedora distributions (Fedora Silverblue, Aurora, Bazzite, etc.) will have to link this library to a user-accessible location. See [here](https://github.com/ublue-os/bazzite/issues/4978#issuecomment-4566369555) for an example of how to achieve this.
-> 
-> It is also worth ensuring GStreamer plugins are correctly installed. Check Freedesktop's installation instructions [here](https://gstreamer.freedesktop.org/documentation/installing/on-linux.html?gi-language=c).
+See [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
 
 ## Contributing
 
