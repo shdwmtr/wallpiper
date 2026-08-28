@@ -84,15 +84,16 @@ $ WALLPIPER_PORTAL=portal [WALLPIPER_*...] wallpiperd
 ```
 
 ## Environment Variables 
-`wallpiperd` has no persistent configuration, all variability is mutable through environment variables. 
+
+wallpiperd has no persistent configuration, all variability is mutable through environment variables. 
 
 See [docs/ENVIRONMENT_VARIABLES.md](./docs/ENVIRONMENT_VARIABLES.md) or `wallpiperd --help/-h`.
 
 ## Command API
 
-`wallpiperctl` is a control process for the `wallpiperd` daemon, and wallpaper-engine. 
+wallpiperctl is a control process for the wallpiperd daemon, and wallpaper-engine. 
 
-See See [docs/COMMAND_API.md](./docs/COMMAND_API.md) or `wallpiperctl --help/-h`. 
+See [docs/COMMAND_API.md](./docs/COMMAND_API.md) or `wallpiperctl --help/-h`. 
 
 ## Troubleshooting
 
