@@ -1,35 +1,22 @@
-# wallpiper 
+# wallpiper
 
-An 100kb native Wallpaper Engine translation layer for GNU/Linux based compositors, without re-inventing the wheel. Proton does most of the heavy lifting, while wallpiper re-implements/patches niche portions of the PE/COFF Windows API Wallpaper Engine needs. 
+A light weight [Wallpaper Engine](https://store.steampowered.com/app/431960/Wallpaper_Engine/) translation layer for GNU/Linux based compositors without re-inventing the wheel. Proton does most of the heavy lifting, while wallpiper re-implements/patches niche portions of the PE/COFF Windows API Wallpaper Engine needs. 
 
 Wallpiper then metaphorically "pipes" your wallpaper (using zero-copy [dma-buf](https://docs.kernel.org/driver-api/dma-buf.html)) from an internal frame buffer to a desktop portal. No overhead. 
 
 If you find this utility/tool useful, please consider giving it a star ⭐
 
-<img width="100%" alt="video" src="https://github.com/user-attachments/assets/a1ab83e7-270f-4229-a64d-190210a1e5cc" />
+[[video showcase]](https://streamable.com/3hbykh)
 
-
-## Why? Other projects exist? 
+## Why? Other projects exist?[^1] 
 
 It's simple. Wallpiper is a translation layer, not a re-implementation. It doesn't depend on Wallpaper Engine, or any program it could theoretically run. Think of it more like Proton itself. 
-Other projects, such as [linux-wallpaperengine](https://github.com/Almamu/linux-wallpaperengine), are re-implementations. This means Wallpaper Engine's private spec/codebase is being cloned/mirrorred (largely by AI).
+Other projects, such as [linux-wallpaperengine](https://github.com/Almamu/linux-wallpaperengine), are re-implementations. This means Wallpaper Engine's private spec/codebase is being cloned/mirrorred (largely by LLM technology, which has a tendency to hallucinate).
 By design, its far more unstable, and not actually Wallpaper Engine. 
 
-NOTE: wallpiper is early in development. Although backed by proper design, you may face breaking issues.
+> NOTE: Wallpiper is early in development. Although backed by proper design, you may face breaking issues.
 
-## Usage
-
-> When built from source, wallpiper is NOT installed to `PATH` automatically. All binaries live at `./build/release` relative to the repository root. 
-
-```sh
-# check config
-$ wallpiperctl check-config
-
-# run wallpiperd (manages proton and wallpaper engine. YOU DO NOTHING)
-$ WALLPIPER_PORTAL=portal WALLPIPER_*... wallpiperd
-```
-
-## Dependencies
+## Core Dependencies[^2]
 
 * wallpaper-engine
 * proton (>= v11.0 was tested working)
@@ -46,18 +33,17 @@ On Arch Linux:
 $ pacman -S base-devel dbus vulkan-headers vulkan-icd-loader fontconfig
 ```
 
-## Packaging
+## Packaging[^3]
 
 We welcome additional packaging submissions, all related packaging logic resides in `.github/packages`
 
 ### Arch Linux (AUR)
 
-Get it from the [AUR](https://aur.archlinux.org/packages/wallpiper), or compile [manually below](#building). 
+Get it from the [AUR](https://aur.archlinux.org/packages/wallpiper), or compile [manually below](##building-from-source). 
 
 
-## Building from source
+## Building from source[^4]
 
-> [!IMPORTANT]
 > It is highly recommended that you have a clean, never before ran installation of Wallpaper Engine before continuing.
 > Running it through Steam, Proton, Wine, or other compatability tools may silently break your install before you even start.
 >
@@ -77,283 +63,58 @@ $ make install-wallpiperd
 ### Wallpiper Portals
 
 Wallpiper supports the following DE/WM(s) through the following portals. Jump to whatever section is relevant to you. 
-
-* [wallpiper-portal-gnome](#gnome-mutter-portal)
-* [wallpiper-portal-kde](#kde-plasma-portal)
-* [wallpiper-portal-hyprland](#hyprland-portal)
-* [wallpiper-portal-sway](#sway-portal)
-* [wallpiper-portal-cosmic](#cosmic-portal)
-* [wallpiper-portal-i3](#i3wm-portal)
-
 Pull requests are welcome for additional portals. You can also submit an issue report to suggest other portals.
 
-## GNOME (Mutter) portal
+* [wallpiper-portal-gnome](./docs/MUTTER.md)
+* [wallpiper-portal-kde](./docs/PLASMA.md)
+* [wallpiper-portal-hyprland](./docs/HYPRLAND.md)
+* [wallpiper-portal-sway](./docs/SWAY.md)
+* [wallpiper-portal-cosmic](./docs/COSMIC.md)
+* [wallpiper-portal-i3](./docs/I3WM.md)
 
-Implemented as an in-process GObject-Introspection library driven by a GNOME Shell extension.
+## Usage[^5]
 
-### Dependencies
-
-* mutter
-* gobject-introspection
-* mesa
-* libdrm
-* libxrandr
-* libx11
-
-On Arch Linux:
+When built from source, wallpiper is NOT installed to `PATH` automatically. All binaries live at `./build/release` relative to the repository root. 
 
 ```sh
-$ pacman -S mutter gobject-introspection mesa libdrm libxrandr libx11
+# check config
+$ wallpiperctl check-config
+
+# run wallpiperd (manages proton and wallpaper engine. YOU DO NOTHING)
+$ WALLPIPER_PORTAL=portal [WALLPIPER_*...] wallpiperd
 ```
 
-### Build
+## Environment Variables[^6]
 
-```sh
-$ make build-gnome
-$ make install-gnome
-```
+wallpiperd has no persistent configuration, all variability is mutable through environment variables. 
 
-Log out and back in, then ensure the extension is enabled. 
+See [docs/ENVIRONMENT_VARIABLES.md](./docs/ENVIRONMENT_VARIABLES.md) or `wallpiperd --help/-h`.
 
-## KDE (Plasma) portal
+## Command API[^7]
 
-Implemented as a Qt Quick/QML plugin, installed as a Plasma 6 Wallpaper KPackage.
+wallpiperctl is a control process for the wallpiperd daemon, and wallpaper-engine. 
 
-### Dependencies
+See [docs/COMMAND_API.md](./docs/COMMAND_API.md) or `wallpiperctl --help/-h`. 
 
-- cmake
-- extra-cmake-modules
-- qt6-base
-- qt6-declarative
-- mesa (for EGL)
-- libx11
+## Troubleshooting[^8]
 
-On Arch Linux:
+See [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
 
-```sh
-$ pacman -S cmake extra-cmake-modules qt6-base qt6-declarative mesa libx11
-```
-
-### Build
-
-```sh
-$ make build-kde
-$ make install-kde
-```
-
-1. Open System Settings -> Wallpaper
-2. Open the Wallpaper type dropdown at the top of the panel
-3. Select Wallpiper
-
-## Hyprland portal
-
-Uses `wlr-layer-shell`. No shell extension, and no install step.
-
-### Dependencies
-
-* wayland
-* wayland-protocols
-
-On Arch Linux:
-
-```sh
-$ pacman -S wayland wayland-protocols
-```
-
-### Build
-
-```sh
-$ make build-hyprland
-```
-
-## Sway portal
-
-> [!WARNING]
-> Sway's IPC has no query for the compositor's global cursor position, so this portal can't support
-> cursor-reactive wallpapers.
->
-> * https://github.com/swaywm/sway/pull/8780
-> * https://github.com/swaywm/sway/pull/8542
->
-> I agree with the sway maintainer. Unfortunately, an after-thought-patch like this is not a proper solution
-> and should not be merged.
->
-> Solutions like https://github.com/cjacker/wl-find-cursor/ exist, however this is a single event library, not meant to be constantly
-> driving mouse events. Mounting to `OVERLAY` instead of the `BACKGROUND` surface to actually intercept the mouse is not a proper solution.
-> `OVERLAY` can't watch the cursor without also being the sole consumer. Sway would be unusable. 
-
-Uses `wlr-layer-shell`. No shell extension, and no install step.
-
-### Dependencies
-
-* wayland
-* wayland-protocols
-
-On Arch Linux:
-
-```sh
-$ pacman -S wayland wayland-protocols
-```
-
-### Build
-
-```sh
-$ make build-sway
-```
-
-## COSMIC portal
-
-> [!WARNING]
-> COSMIC's IPC has no query for the compositor's global cursor position, so this portal can't support
-> cursor-reactive wallpapers.
-
-Uses `wlr-layer-shell`. No shell extension, and no install step.
-
-### Dependencies
-
-* wayland
-* wayland-protocols
-
-On Arch Linux:
-
-```sh
-$ pacman -S wayland wayland-protocols
-```
-
-### Build
-
-```sh
-$ make build-cosmic
-```
-
-## i3wm portal
-
-Interfaces with X11 directly. No shell extension, and no install step.
-
-### Dependencies
-
-* libxcb (including its `xcb-dri3` and `xcb-shm` extensions)
-
-On Arch Linux:
-
-```sh
-$ pacman -S libxcb
-```
-
-### Build
-
-```sh
-$ make build-i3
-```
-
-## Environment Variables 
-`wallpiperd` has no persistent configuration, all variability is mutable through environment variables. 
-
-```
-usage: $ WALLPIPER_PORTAL=... WALLPIPER_... wallpiperd
-
-  WALLPIPER_PORTAL (*)
-      brief:   Which portal to use: hyprland, sway, cosmic, i3, gnome, kde.
-
-  WALLPIPER_STEAM_ROOT
-      default: auto-detected (~/.local/share/Steam, ~/.steam/steam,
-               ~/.steam/root, or the Flatpak path)
-      brief:   Your Steam library root.
-
-  WALLPIPER_PROTON_BIN
-      default: auto-detected under compatibilitytools.d/*/proton or
-               steamapps/common/Proton */proton
-      brief:   Path to the proton binary to run Wallpaper Engine with.
-
-  WALLPIPER_WE_EXE
-      default: $WALLPIPER_STEAM_ROOT/steamapps/common/
-               wallpaper_engine/wallpaper64.exe
-      brief:   Path to Wallpaper Engine's executable.
-
-  WALLPIPER_TEMP_DIR
-      default: /tmp/wallpiper
-      brief:   Directory used for ephemeral, session-scoped files,
-               control sockets, the Vulkan capture layer's search path,
-               tracked renderer PIDs, etc.
-
-  WALLPIPER_RUNTIME_DIR
-      default: $XDG_STATE_HOME/wallpiper, or ~/.local/state/wallpiper
-      brief:   Directory used for state that should persist across reboots.
-
-  WALLPIPER_WE_UI_SCALE_FACTOR
-      default: unset (no scaling override)
-      brief:   Forces N scale factor on Wallpaper Engine's
-               properties-panel process. Not auto-detected.
-
-  WALLPIPER_TRAY_OPTS
-      default: native
-      brief:   Controls how the Wallpaper Engine tray icon is translated.
-      options: [native, notray, passthrough]
-              native: over org.kde.StatusNotifierItem/dbusmenu. Supports all portals.
-              notray: no tray rendered at all
-         passthrough: pushes a raw legacy XEmbed tray icon, which only
-                      appears if your desktop runs a legacy tray host.
-```
-
-## Command API
-
-`wallpiperctl` is a control process for the `wallpiperd` daemon, and wallpaper-engine. 
-
-```
-usage: wallpiperctl <command>
-
-daemon commands (require a running wallpiperd):
-  debug-on | debug-off
-
-wallpaper engine commands:
-  pause | play   | stop
-  next  | prev   | reset
-  mute  | unmute | volume <0-100>
-  set <path|workshop-id> [monitor; int; 0-indexed]
-  prop <path|workshop-id> <name> <value> [monitor; int; 0-indexed]
-  list
-
-standalone commands:
-  check-config
-```
-
-## Common Issues
-
-### SMPTE-(EG)-1-1990 on video based wallpapers
-
-> <img height="200" alt="image" src="https://github.com/user-attachments/assets/46f9a6cf-0991-4a9d-bfaf-4d29b7afce57" />
-> 
-> Wine's `mfplat` falls back to rendering (EG) 1-1990 when a proprietary codec is not supported. 
-> This is outside the scope of `wallpiper`. Many existing proton based compatibility layers have fixes builtin.
-> 
-> For instance:
-> 
-> * [GE-Proton11-5-x86_64](https://github.com/GloriousEggroll/proton-ge-custom/releases/tag/GE-Proton11-5) (`winegstreamer` is the key library)
-
-### Black Screen/Can't open Wallpaper Engine
-
-> Likely an issue with your underling translation layer. Only GE-Proton-11 and Valve-Proton-11 have been tested working. 
->
-> All users experiencing this issue fixed it upgrading to a later version of Proton. 
-
-### GStreamer-WARNING: libbz2.so.1.0: No such file or directory (Fedora)
-
-> This error is Fedora-specific and is only seen at runtime, causing intermittent crashes in Wallpaper Engine even when idle. It can be fixed by creating a symbolic link for the > critical library `libbz2.so.1.0`, as it is named `libbz2.so.1` in Fedora.
-> 
-> On standard Fedora distributions:
-> 
-> ```
-> ln -s /usr/lib64/libbz2.so.1 /usr/lib64/libbz2.so.1.0
-> ```
-> 
-> Immutable Fedora distributions (Fedora Silverblue, Aurora, Bazzite, etc.) will have to link this library to a user-accessible location. See [here](https://github.com/ublue-os/bazzite/issues/4978#issuecomment-4566369555) for an example of how to achieve this.
-> 
-> It is also worth ensuring GStreamer plugins are correctly installed. Check Freedesktop's installation instructions [here](https://gstreamer.freedesktop.org/documentation/installing/on-linux.html?gi-language=c).
-
-## Contributing
+## Contributing[^9]
 
 Issues and pull requests are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md). If wallpiper is useful to you, a star helps others find it!
 
-## License
+## License[^10]
 
 MIT see [`LICENSE`](./LICENSE).
+
+[^1]: Why wallpiper
+[^2]: Core dependencies
+[^3]: External repository packaging status
+[^4]: Building wallpipers source code
+[^5]: Wallpiper usage
+[^6]: Environment variable documentation
+[^7]: Command API documentation
+[^8]: Troubleshooting wallpiper
+[^9]: Contributing to the wallpiper code-base
+[^10]: Licensing agreement

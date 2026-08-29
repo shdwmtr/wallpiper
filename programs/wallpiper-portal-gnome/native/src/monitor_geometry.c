@@ -168,7 +168,50 @@ gboolean wallpiper_x11_output_for_size(guint32 width, guint32 height,
     if (output_info->connection == RR_Connected && output_info->crtc != None) {
       XRRCrtcInfo *crtc_info = XRRGetCrtcInfo(dpy, res, output_info->crtc);
       if (crtc_info) {
-        if (crtc_info->width == width && crtc_info->height == height) {
+        gboolean straight =
+            crtc_info->width == width && crtc_info->height == height;
+        gboolean rotated =
+            crtc_info->width == height && crtc_info->height == width &&
+            (crtc_info->rotation & (RR_Rotate_90 | RR_Rotate_270));
+        if (straight || rotated) {
+          g_strlcpy(name_out, output_info->name, name_out_len);
+          found = TRUE;
+        }
+        XRRFreeCrtcInfo(crtc_info);
+      }
+    }
+    XRRFreeOutputInfo(output_info);
+  }
+
+  XRRFreeScreenResources(res);
+  return found;
+}
+
+gboolean wallpiper_x11_output_for_position(gint32 x, gint32 y, char *name_out,
+                                           size_t name_out_len) {
+  name_out[0] = '\0';
+
+  Display *dpy = get_x11_display();
+  if (!dpy) {
+    return FALSE;
+  }
+
+  Window root = DefaultRootWindow(dpy);
+  XRRScreenResources *res = XRRGetScreenResourcesCurrent(dpy, root);
+  if (!res) {
+    return FALSE;
+  }
+
+  gboolean found = FALSE;
+  for (int i = 0; i < res->noutput && !found; i++) {
+    XRROutputInfo *output_info = XRRGetOutputInfo(dpy, res, res->outputs[i]);
+    if (!output_info) {
+      continue;
+    }
+    if (output_info->connection == RR_Connected && output_info->crtc != None) {
+      XRRCrtcInfo *crtc_info = XRRGetCrtcInfo(dpy, res, output_info->crtc);
+      if (crtc_info) {
+        if (crtc_info->x == x && crtc_info->y == y) {
           g_strlcpy(name_out, output_info->name, name_out_len);
           found = TRUE;
         }

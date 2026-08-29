@@ -14,7 +14,6 @@ set(CMAKE_MODULE_PATH
 
 find_package(Qt6 6.7 REQUIRED COMPONENTS Core Gui Qml Quick)
 find_package(EGL REQUIRED)
-find_package(X11 REQUIRED)
 
 qt_standard_project_setup(REQUIRES 6.7)
 
@@ -43,7 +42,6 @@ qt_add_qml_module(wallpiper_capture_plugin
 target_include_directories(wallpiper_capture_plugin PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${X11_INCLUDE_DIR}
 )
 
 target_link_libraries(wallpiper_capture_plugin PRIVATE
@@ -52,8 +50,6 @@ target_link_libraries(wallpiper_capture_plugin PRIVATE
     Qt6::Qml
     Qt6::Quick
     EGL::EGL
-    ${X11_LIBRARIES}
-    Xrandr
 )
 
 target_compile_options(wallpiper_capture_plugin PRIVATE

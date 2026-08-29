@@ -60,6 +60,9 @@ struct BufEvent {
   uint32_t height = 0;
   uint32_t stride = 0;
   uint64_t modifier = 0;
+  bool hasGeometry = false;
+  int32_t geomX = 0;
+  int32_t geomY = 0;
   int fd = -1;
   int syncFd = -1;
 };

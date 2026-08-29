@@ -87,7 +87,8 @@ void CaptureSocket::run() {
 
     if (const auto *buf = std::get_if<WallpiperProtocol::BufEvent>(&*event)) {
       emit bufReceived(buf->slot, buf->width, buf->height, buf->stride,
-                       buf->modifier, buf->fd, buf->syncFd);
+                       buf->modifier, buf->hasGeometry, buf->geomX,
+                       buf->geomY, buf->fd, buf->syncFd);
     } else if (const auto *frame =
                    std::get_if<WallpiperProtocol::FrameEvent>(&*event)) {
       emit frameReceived(frame->slot, frame->syncFd);

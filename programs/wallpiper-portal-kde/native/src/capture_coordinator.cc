@@ -34,11 +34,9 @@
 #include <QTimer>
 
 #include <algorithm>
+#include <cmath>
 
 #include <unistd.h>
-
-#include <X11/Xlib.h>
-#include <X11/extensions/Xrandr.h>
 
 namespace WallpiperKde {
 
@@ -48,39 +46,37 @@ constexpr int kCursorSampleIntervalMs = 8;
 /* must match loader/vk-layer-hook/config.h */
 constexpr uint32_t kCaptureSlotCount = 3;
 
-QString x11OutputForSize(quint32 width, quint32 height) {
-  static Display *dpy = XOpenDisplay(nullptr);
-  if (!dpy) {
-    return QString();
-  }
+/*
+ * a buffered tolerance, as fractional scaling mathmatically floats,
+ * we could differ by a pixel on either end.
+ */
+constexpr int32_t kGeometryTolerancePx = 2;
 
-  Window root = DefaultRootWindow(dpy);
-  XRRScreenResources *res = XRRGetScreenResourcesCurrent(dpy, root);
-  if (!res) {
-    return QString();
-  }
+bool nearlyEqual(int64_t a, int64_t b) {
+  return std::abs(a - b) <= kGeometryTolerancePx;
+}
 
-  QString found;
-  for (int i = 0; i < res->noutput && found.isEmpty(); i++) {
-    XRROutputInfo *outputInfo = XRRGetOutputInfo(dpy, res, res->outputs[i]);
-    if (!outputInfo) {
-      continue;
-    }
-    if (outputInfo->connection == RR_Connected && outputInfo->crtc != None) {
-      XRRCrtcInfo *crtcInfo = XRRGetCrtcInfo(dpy, res, outputInfo->crtc);
-      if (crtcInfo) {
-        if (static_cast<quint32>(crtcInfo->width) == width &&
-            static_cast<quint32>(crtcInfo->height) == height) {
-          found = QString::fromUtf8(outputInfo->name);
-        }
-        XRRFreeCrtcInfo(crtcInfo);
-      }
-    }
-    XRRFreeOutputInfo(outputInfo);
-  }
+/*
+ * X11 only has one global scale factor, which translates over to KWins Xwayland
+ * policy. Needed to match synthetic monitor dimensions.
+ */
+double xwaylandGlobalScale() {
+  QScreen *primary = QGuiApplication::primaryScreen();
+  double scale = primary ? primary->devicePixelRatio() : 1.0;
+  return scale > 0.0 ? scale : 1.0;
+}
 
-  XRRFreeScreenResources(res);
-  return found;
+WallpiperProtocol::MonitorGeometry
+predictedXWaylandRect(const WallpiperProtocol::MonitorGeometry &real,
+                      double globalScale) {
+  WallpiperProtocol::MonitorGeometry predicted;
+  predicted.x = static_cast<int32_t>(std::lround(real.x * globalScale));
+  predicted.y = static_cast<int32_t>(std::lround(real.y * globalScale));
+  predicted.width =
+      static_cast<uint32_t>(std::lround(real.logicalWidth * globalScale));
+  predicted.height =
+      static_cast<uint32_t>(std::lround(real.logicalHeight * globalScale));
+  return predicted;
 }
 } // namespace
 
@@ -95,9 +91,13 @@ CaptureCoordinator::CaptureCoordinator(QObject *parent)
       m_cursorTimer(new QTimer(this)) {
   connect(m_captureSocket, &CaptureSocket::bufReceived, this,
           [this](quint32 slot, quint32 width, quint32 height, quint32 stride,
-                 quint64 modifier, int fd, int syncFd) {
+                 quint64 modifier, bool hasGeometry, qint32 geomX, qint32 geomY,
+                 int fd, int syncFd) {
             uint32_t channel = slot / kCaptureSlotCount;
             WallpaperCaptureItem *item = channelItem(channel);
+            if (!item && hasGeometry) {
+              item = claimItemForPosition(channel, geomX, geomY);
+            }
             if (!item) {
               item = claimItemForSize(channel, width, height);
             }
@@ -225,13 +225,7 @@ WallpaperCaptureItem *CaptureCoordinator::channelItem(uint32_t channel) const {
 WallpaperCaptureItem *CaptureCoordinator::claimItemForSize(uint32_t channel,
                                                            quint32 width,
                                                            quint32 height) {
-  QString outputName = x11OutputForSize(width, height);
-  if (outputName.isEmpty()) {
-    qWarning() << "[coordinator] XRandR has no output currently sized" << width
-               << "x" << height << "-- cannot bind channel" << channel;
-    return nullptr;
-  }
-
+  double globalScale = xwaylandGlobalScale();
   for (auto *item : m_items) {
     bool alreadyClaimed = false;
     for (const auto &[boundChannel, boundItem] : m_channelItems) {
@@ -243,19 +237,66 @@ WallpaperCaptureItem *CaptureCoordinator::claimItemForSize(uint32_t channel,
     if (alreadyClaimed) {
       continue;
     }
-    QScreen *screen = item->window() ? item->window()->screen() : nullptr;
-    if (screen && screen->name() == outputName) {
+    std::optional<WallpiperProtocol::MonitorGeometry> geometry =
+        item->currentGeometry();
+    if (!geometry) {
+      continue;
+    }
+    WallpiperProtocol::MonitorGeometry predicted =
+        predictedXWaylandRect(*geometry, globalScale);
+    if (nearlyEqual(predicted.width, width) &&
+        nearlyEqual(predicted.height, height)) {
       m_channelItems[channel] = item;
+      QScreen *screen = item->window() ? item->window()->screen() : nullptr;
       qInfo() << "[coordinator] channel" << channel << "bound to screen"
-              << outputName << "for stream" << width << "x" << height;
+              << (screen ? screen->name() : QStringLiteral("<unknown>"))
+              << "for stream" << width << "x" << height << "(predicted"
+              << predicted.width << "x" << predicted.height
+              << "at XWayland scale" << globalScale << ")";
       return item;
     }
   }
-  qWarning() << "[coordinator] XRandR output" << outputName << "(matched"
-             << width << "x" << height
-             << ") not found among registered wallpaper items, or already "
-                "claimed -- cannot bind channel"
-             << channel;
+  qWarning() << "[coordinator] no registered wallpaper item predicted to be"
+             << width << "x" << height << "at XWayland scale" << globalScale
+             << "(or already claimed) -- cannot bind channel" << channel;
+  return nullptr;
+}
+
+WallpaperCaptureItem *
+CaptureCoordinator::claimItemForPosition(uint32_t channel, qint32 x, qint32 y) {
+  double globalScale = xwaylandGlobalScale();
+  for (auto *item : m_items) {
+    bool alreadyClaimed = false;
+    for (const auto &[boundChannel, boundItem] : m_channelItems) {
+      if (boundItem == item) {
+        alreadyClaimed = true;
+        break;
+      }
+    }
+    if (alreadyClaimed) {
+      continue;
+    }
+    std::optional<WallpiperProtocol::MonitorGeometry> geometry =
+        item->currentGeometry();
+    if (!geometry) {
+      continue;
+    }
+    WallpiperProtocol::MonitorGeometry predicted =
+        predictedXWaylandRect(*geometry, globalScale);
+    if (nearlyEqual(predicted.x, x) && nearlyEqual(predicted.y, y)) {
+      m_channelItems[channel] = item;
+      QScreen *screen = item->window() ? item->window()->screen() : nullptr;
+      qInfo() << "[coordinator] channel" << channel << "bound to screen"
+              << (screen ? screen->name() : QStringLiteral("<unknown>"))
+              << "at position" << x << "," << y << "(predicted" << predicted.x
+              << "," << predicted.y << "at XWayland scale" << globalScale
+              << ")";
+      return item;
+    }
+  }
+  qWarning() << "[coordinator] no registered wallpaper item predicted at" << x
+             << "," << y << "at XWayland scale" << globalScale
+             << "(or already claimed) cannot bind channel" << channel;
   return nullptr;
 }
 

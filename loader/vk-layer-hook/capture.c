@@ -26,10 +26,83 @@
 #include "config.h"
 #include "logging.h"
 
+#include <dlfcn.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+typedef struct {
+  unsigned int sequence;
+} wp_xcb_get_geometry_cookie_t;
+
+typedef struct {
+  uint8_t response_type;
+  uint8_t depth;
+  uint16_t sequence;
+  uint32_t length;
+  uint32_t root;
+  int16_t x;
+  int16_t y;
+  uint16_t width;
+  uint16_t height;
+  uint16_t border_width;
+  uint8_t pad0[2];
+} wp_xcb_get_geometry_reply_t;
+
+typedef void *(*wp_pfn_xcb_connect)(const char *, int *);
+typedef int (*wp_pfn_xcb_connection_has_error)(void *);
+typedef wp_xcb_get_geometry_cookie_t (*wp_pfn_xcb_get_geometry)(void *,
+                                                                uint32_t);
+typedef wp_xcb_get_geometry_reply_t *(*wp_pfn_xcb_get_geometry_reply)(
+    void *, wp_xcb_get_geometry_cookie_t, void *);
+
+static void *g_xcb_conn = NULL;
+static pthread_once_t g_xcb_conn_once = PTHREAD_ONCE_INIT;
+
+static void wp_xcb_connect_once(void) {
+  wp_pfn_xcb_connect connect_fn =
+      (wp_pfn_xcb_connect)dlsym(RTLD_DEFAULT, "xcb_connect");
+  wp_pfn_xcb_connection_has_error has_error_fn =
+      (wp_pfn_xcb_connection_has_error)dlsym(RTLD_DEFAULT,
+                                             "xcb_connection_has_error");
+  if (!connect_fn || !has_error_fn) {
+    return;
+  }
+  void *conn = connect_fn(NULL, NULL);
+  if (conn && has_error_fn(conn)) {
+    conn = NULL;
+  }
+  g_xcb_conn = conn;
+}
+
+static bool wp_x11_window_geometry(unsigned long xid, int32_t *out_x,
+                                   int32_t *out_y) {
+  pthread_once(&g_xcb_conn_once, wp_xcb_connect_once);
+  if (!g_xcb_conn) {
+    return false;
+  }
+
+  wp_pfn_xcb_get_geometry get_geometry =
+      (wp_pfn_xcb_get_geometry)dlsym(RTLD_DEFAULT, "xcb_get_geometry");
+  wp_pfn_xcb_get_geometry_reply get_geometry_reply =
+      (wp_pfn_xcb_get_geometry_reply)dlsym(RTLD_DEFAULT,
+                                           "xcb_get_geometry_reply");
+  if (!get_geometry || !get_geometry_reply) {
+    return false;
+  }
+
+  wp_xcb_get_geometry_cookie_t cookie = get_geometry(g_xcb_conn, (uint32_t)xid);
+  wp_xcb_get_geometry_reply_t *reply =
+      get_geometry_reply(g_xcb_conn, cookie, NULL);
+  if (!reply) {
+    return false;
+  }
+  *out_x = reply->x;
+  *out_y = reply->y;
+  free(reply);
+  return true;
+}
 
 static uint32_t compute_candidate_modifiers(wp_device_data_t *dd,
                                             VkFormat format, uint64_t *out,
@@ -465,6 +538,36 @@ static void free_wire_channel(uint32_t channel) {
   }
 }
 
+static pthread_mutex_t g_channel_geom_mutex = PTHREAD_MUTEX_INITIALIZER;
+static bool g_channel_has_geometry[WP_MAX_CAPTURE_CHANNELS];
+static int32_t g_channel_geom_x[WP_MAX_CAPTURE_CHANNELS];
+static int32_t g_channel_geom_y[WP_MAX_CAPTURE_CHANNELS];
+
+static void set_channel_geometry(uint32_t channel, bool has_geometry,
+                                 int32_t geom_x, int32_t geom_y) {
+  if (channel >= WP_MAX_CAPTURE_CHANNELS) {
+    return;
+  }
+  pthread_mutex_lock(&g_channel_geom_mutex);
+  g_channel_has_geometry[channel] = has_geometry;
+  g_channel_geom_x[channel] = geom_x;
+  g_channel_geom_y[channel] = geom_y;
+  pthread_mutex_unlock(&g_channel_geom_mutex);
+}
+
+static bool get_channel_geometry(uint32_t channel, int32_t *out_x,
+                                 int32_t *out_y) {
+  if (channel >= WP_MAX_CAPTURE_CHANNELS) {
+    return false;
+  }
+  pthread_mutex_lock(&g_channel_geom_mutex);
+  bool has_geometry = g_channel_has_geometry[channel];
+  *out_x = g_channel_geom_x[channel];
+  *out_y = g_channel_geom_y[channel];
+  pthread_mutex_unlock(&g_channel_geom_mutex);
+  return has_geometry;
+}
+
 void wp_register_swapchain(wp_device_data_t *dd, VkSwapchainKHR swapchain,
                            const VkSwapchainCreateInfoKHR *create_info) {
   VkImage images[16];
@@ -480,6 +583,13 @@ void wp_register_swapchain(wp_device_data_t *dd, VkSwapchainKHR swapchain,
          (unsigned long long)swapchain, (int)create_info->imageFormat,
          create_info->imageExtent.width, create_info->imageExtent.height,
          image_count, candidate_count);
+
+  unsigned long xid;
+  int32_t geom_x = 0, geom_y = 0;
+  bool has_geometry = false;
+  if (wp_surface_xid_lookup(create_info->surface, &xid)) {
+    has_geometry = wp_x11_window_geometry(xid, &geom_x, &geom_y);
+  }
 
   pthread_mutex_lock(&dd->swapchains_mutex);
   wp_swapchain_state_t *slot = NULL;
@@ -521,8 +631,17 @@ void wp_register_swapchain(wp_device_data_t *dd, VkSwapchainKHR swapchain,
   slot->wire_channel = wire_channel;
   pthread_mutex_unlock(&dd->swapchains_mutex);
 
-  WP_LOG("register_swapchain: swapchain=%llu assigned wire_channel=%u",
-         (unsigned long long)swapchain, wire_channel);
+  set_channel_geometry(wire_channel, has_geometry, geom_x, geom_y);
+
+  if (has_geometry) {
+    WP_LOG("register_swapchain: swapchain=%llu assigned wire_channel=%u "
+           "geometry=(%d,%d)",
+           (unsigned long long)swapchain, wire_channel, geom_x, geom_y);
+  } else {
+    WP_LOG("register_swapchain: swapchain=%llu assigned wire_channel=%u "
+           "(no window geometry available)",
+           (unsigned long long)swapchain, wire_channel);
+  }
 }
 
 void wp_teardown_swapchain(wp_device_data_t *dd, VkSwapchainKHR swapchain) {
@@ -667,10 +786,14 @@ void wp_capture_and_notify(wp_device_data_t *dd, VkQueue queue,
   VkSemaphore ready_semaphore = slot->ready_semaphore;
   VkFormat format = state->format;
   VkExtent2D extent = state->extent;
+  uint32_t wire_channel = state->wire_channel;
   uint32_t wire_slot =
-      state->wire_channel * WP_CAPTURE_SLOT_COUNT + (uint32_t)slot_idx;
+      wire_channel * WP_CAPTURE_SLOT_COUNT + (uint32_t)slot_idx;
 
   pthread_mutex_unlock(&dd->swapchains_mutex);
+
+  int32_t geom_x = 0, geom_y = 0;
+  bool has_geometry = get_channel_geometry(wire_channel, &geom_x, &geom_y);
 
   VkSemaphoreGetFdInfoKHR sync_get_fd_info = {
       .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR,
@@ -702,7 +825,8 @@ void wp_capture_and_notify(wp_device_data_t *dd, VkQueue queue,
     }
     bool sent = wp_capture_link_send_buf(
         dd->capture_link, wire_slot, extent.width, extent.height,
-        (uint32_t)format, stride, modifier, fd, sync_fd);
+        (uint32_t)format, stride, modifier, has_geometry, geom_x, geom_y, fd,
+        sync_fd);
     if (sent) {
       pthread_mutex_lock(&dd->swapchains_mutex);
       wp_swapchain_state_t *state2 = find_swapchain_locked(dd, swapchain);

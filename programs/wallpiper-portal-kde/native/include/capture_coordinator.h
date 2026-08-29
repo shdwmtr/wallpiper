@@ -58,6 +58,8 @@ private:
   void teardownSockets();
 
   WallpaperCaptureItem *channelItem(uint32_t channel) const;
+  WallpaperCaptureItem *claimItemForPosition(uint32_t channel, qint32 x,
+                                             qint32 y);
   WallpaperCaptureItem *claimItemForSize(uint32_t channel, quint32 width,
                                          quint32 height);
 

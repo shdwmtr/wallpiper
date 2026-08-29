@@ -154,6 +154,9 @@ bool wp_global_instance_get_format_properties2(VkPhysicalDevice pd,
                                                VkFormat format,
                                                VkFormatProperties2 *out);
 
+void wp_surface_xid_register(VkSurfaceKHR surface, unsigned long xid);
+bool wp_surface_xid_lookup(VkSurfaceKHR surface, unsigned long *out_xid);
+
 VKAPI_ATTR VkResult VKAPI_CALL wp_CreateInstance(
     const VkInstanceCreateInfo *pCreateInfo,
     const VkAllocationCallbacks *pAllocator, VkInstance *pInstance);
