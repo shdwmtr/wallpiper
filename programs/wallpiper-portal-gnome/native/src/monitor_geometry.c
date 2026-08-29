@@ -168,7 +168,12 @@ gboolean wallpiper_x11_output_for_size(guint32 width, guint32 height,
     if (output_info->connection == RR_Connected && output_info->crtc != None) {
       XRRCrtcInfo *crtc_info = XRRGetCrtcInfo(dpy, res, output_info->crtc);
       if (crtc_info) {
-        if (crtc_info->width == width && crtc_info->height == height) {
+        gboolean straight =
+            crtc_info->width == width && crtc_info->height == height;
+        gboolean rotated =
+            crtc_info->width == height && crtc_info->height == width &&
+            (crtc_info->rotation & (RR_Rotate_90 | RR_Rotate_270));
+        if (straight || rotated) {
           g_strlcpy(name_out, output_info->name, name_out_len);
           found = TRUE;
         }
