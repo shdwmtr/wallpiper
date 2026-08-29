@@ -1,3 +1,11 @@
+## [2.0.1](https://github.com/shdwmtr/wallpiper/compare/v2.0.0...v2.0.1) (2026-08-29)
+
+
+### Bug Fixes
+
+* Fix GNOME portal not working on rotated monitors ([6fe8a9c](https://github.com/shdwmtr/wallpiper/commit/6fe8a9c74ebc5a9e11206c4cf014318d395faccc))
+* Fix monitor positioning algorithm ([d81322e](https://github.com/shdwmtr/wallpiper/commit/d81322eab319174db4caf3231cd7aedc59e62613))
+
 # [2.0.0](https://github.com/shdwmtr/wallpiper/compare/v1.4.0...v2.0.0) (2026-08-26)
 
 
