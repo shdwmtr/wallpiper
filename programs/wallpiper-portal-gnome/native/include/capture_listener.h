@@ -29,4 +29,10 @@ gboolean wallpiper_capture_listener_start(WallpiperPortalState *state,
                                           GError **error);
 void wallpiper_capture_listener_stop(WallpiperPortalState *state);
 void wallpiper_capture_listener_detach(WallpiperPortalState *state);
+gboolean wallpiper_capture_listener_readback(WallpiperPortalState *state,
+                                             guint32 channel,
+                                             guint8 **out_pixels,
+                                             guint32 *out_width,
+                                             guint32 *out_height,
+                                             GError **error);
 G_END_DECLS

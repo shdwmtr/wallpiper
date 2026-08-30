@@ -53,6 +53,8 @@ typedef struct {
   int fd;
   uint32_t width;
   uint32_t height;
+  uint32_t stride;
+  uint64_t modifier;
 } wp_wl_slot_t;
 
 typedef enum {
@@ -70,15 +72,30 @@ typedef struct {
   uint32_t stride;
 } wp_wl_source_t;
 
+typedef struct {
+  bool pending;
+  uint32_t channel;
+  uint32_t wire_slot;
+  uint32_t width;
+  uint32_t height;
+  uint32_t stride;
+  uint64_t modifier;
+  bool has_geometry;
+  int32_t geom_x;
+  int32_t geom_y;
+  int fd;
+} wp_wl_pending_buf_t;
+
 typedef struct wp_wl_state wp_wl_state_t;
 
 typedef struct {
   wp_wl_state_t *state;
   struct wl_output *output;
   bool known;
+  char name[64];
   int32_t x;
   int32_t y;
-  uint32_t width; /* physical pixels, from wl_output.mode */
+  uint32_t width;
   uint32_t height;
   double scale;
 
@@ -116,6 +133,8 @@ struct wp_wl_state {
   wp_wl_output_t outputs[WP_WL_MAX_OUTPUTS];
   size_t output_count;
 
+  wp_wl_pending_buf_t pending_bufs[WP_WL_MAX_CAPTURE_CHANNELS];
+
   bool debug_enabled;
   struct wl_surface *debug_surface;
   struct wl_subsurface *debug_subsurface;
@@ -141,6 +160,9 @@ void wp_wl_output_ready(wp_wl_output_t *out);
 void wp_wl_request_frame_callback(wp_wl_output_t *out);
 
 void wp_wl_refresh_geometry(wp_wl_state_t *state);
+wp_wl_output_t *wp_wl_find_output_for_channel(wp_wl_state_t *state,
+                                              uint32_t channel);
+void wp_wl_retry_pending_bufs(wp_wl_state_t *state);
 void wp_wl_set_current_source(wp_wl_output_t *out, wp_wl_source_t source);
 void wp_wl_handle_capture_event(wp_wl_state_t *state,
                                 const wp_capture_event_t *event);

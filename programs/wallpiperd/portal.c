@@ -234,6 +234,28 @@ void wp_portal_set_debug_overlay(bool enabled) {
          ok ? "ok" : "failed");
 }
 
+bool wp_portal_capture_frame(uint32_t channel, const char *path, char *err,
+                             size_t err_len) {
+  char portal_name[64];
+  if (!wp_portal_name(portal_name, sizeof(portal_name), err, err_len)) {
+    return false;
+  }
+  wp_ctl_response_t resp;
+  if (!wp_send_ctl_capture_request(portal_name, channel, path, &resp)) {
+    snprintf(err, err_len, "no response from portal %s", portal_name);
+    return false;
+  }
+  if (resp.tag == WP_CTL_RESPONSE_OK) {
+    return true;
+  }
+  if (resp.tag == WP_CTL_RESPONSE_ERR) {
+    snprintf(err, err_len, "%s", resp.err);
+  } else {
+    snprintf(err, err_len, "unexpected response from portal");
+  }
+  return false;
+}
+
 bool wp_portal_take_display_pid(int *out_pid) {
   pthread_mutex_lock(&g_state_mutex);
   bool has = g_display_pid >= 0;

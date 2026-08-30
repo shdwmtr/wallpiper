@@ -102,10 +102,19 @@ enum class CtlRequest {
   DebugOff,
   CursorPos,
   Ping,
+  Capture,
 };
 
 std::optional<CtlRequest> parseCtlRequest(const std::string &line);
 std::string encodeCtlRequest(CtlRequest request);
+
+struct CtlRequestCapture {
+  uint32_t channel = 0;
+  QString path;
+};
+/* Only valid to call when parseCtlRequest() returned CtlRequest::Capture
+ * for the same line. */
+std::optional<CtlRequestCapture> parseCtlRequestCapture(const std::string &line);
 
 struct CtlResponseOk {};
 struct CtlResponseErr {

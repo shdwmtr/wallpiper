@@ -21,19 +21,16 @@
  * SOFTWARE.
  */
 
-import Wallpiper from 'gi://Wallpiper?version=1.0';
-import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
+#pragma once
 
-export default class WallpiperExtension extends Extension {
-    enable() {
-        try {
-            Wallpiper.portal_start(global.backend, global.window_group, global.display);
-            console.log('[wallpiper-gnome] portal started');
-        } catch (e) {
-            console.error(`[wallpiper-gnome] portal_start() failed: ${e.message}`);
-        }
-    }
-    disable() {
-        Wallpiper.portal_stop();
-    }
-}
+#include <QString>
+
+#include <cstdint>
+#include <optional>
+
+namespace WallpiperKde {
+
+std::optional<QString> x11OutputForPosition(int32_t x, int32_t y);
+std::optional<QString> x11OutputForSize(uint32_t width, uint32_t height);
+
+} // namespace WallpiperKde

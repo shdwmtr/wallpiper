@@ -160,6 +160,7 @@ static void output_done(void *data, struct wl_output *output) {
   wp_wl_output_t *out = data;
   out->known = true;
   wp_wl_output_ready(out);
+  wp_wl_retry_pending_bufs(out->state);
   // wp_wl_refresh_geometry(out->state);
 }
 
@@ -171,9 +172,9 @@ static void output_scale(void *data, struct wl_output *output, int32_t factor) {
 
 static void output_name(void *data, struct wl_output *output,
                         const char *name) {
-  (void)data;
   (void)output;
-  (void)name;
+  wp_wl_output_t *out = data;
+  snprintf(out->name, sizeof(out->name), "%s", name);
 }
 
 static void output_description(void *data, struct wl_output *output,

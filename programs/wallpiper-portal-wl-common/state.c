@@ -22,14 +22,29 @@
  */
 
 #include "state_internal.h"
+#include "x11_output_lookup.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
-static wp_wl_output_t *find_output_for_channel(wp_wl_state_t *state,
-                                               uint32_t channel) {
+static wp_wl_output_t *find_output_by_name(wp_wl_state_t *state,
+                                           const char *name) {
+  if (name[0] == '\0') {
+    return NULL;
+  }
+  for (size_t i = 0; i < state->output_count; i++) {
+    wp_wl_output_t *out = &state->outputs[i];
+    if (out->known && !out->has_bound_channel && strcmp(out->name, name) == 0) {
+      return out;
+    }
+  }
+  return NULL;
+}
+
+wp_wl_output_t *wp_wl_find_output_for_channel(wp_wl_state_t *state,
+                                              uint32_t channel) {
   for (size_t i = 0; i < state->output_count; i++) {
     wp_wl_output_t *out = &state->outputs[i];
     if (out->has_bound_channel && out->bound_channel == channel) {
@@ -43,6 +58,18 @@ static wp_wl_output_t *claim_output_for_position(wp_wl_state_t *state,
                                                  uint32_t channel,
                                                  int32_t geom_x,
                                                  int32_t geom_y) {
+  char name[64];
+  if (wp_wl_x11_output_for_position(geom_x, geom_y, name, sizeof(name))) {
+    wp_wl_output_t *out = find_output_by_name(state, name);
+    if (out) {
+      out->has_bound_channel = true;
+      out->bound_channel = channel;
+      printf("[socket] channel %u matched by XRandR output name \"%s\"\n",
+             channel, name);
+      return out;
+    }
+  }
+
   for (size_t i = 0; i < state->output_count; i++) {
     wp_wl_output_t *out = &state->outputs[i];
     if (out->known && !out->has_bound_channel && out->x == geom_x &&
@@ -55,9 +82,30 @@ static wp_wl_output_t *claim_output_for_position(wp_wl_state_t *state,
   return NULL;
 }
 
+static bool all_outputs_known(wp_wl_state_t *state) {
+  for (size_t i = 0; i < state->output_count; i++) {
+    if (!state->outputs[i].known) {
+      return false;
+    }
+  }
+  return true;
+}
+
 static wp_wl_output_t *claim_output_for_size(wp_wl_state_t *state,
                                              uint32_t channel, uint32_t width,
                                              uint32_t height) {
+  char name[64];
+  if (wp_wl_x11_output_for_size(width, height, name, sizeof(name))) {
+    wp_wl_output_t *out = find_output_by_name(state, name);
+    if (out) {
+      out->has_bound_channel = true;
+      out->bound_channel = channel;
+      printf("[socket] channel %u matched by XRandR output name \"%s\"\n",
+             channel, name);
+      return out;
+    }
+  }
+
   for (size_t i = 0; i < state->output_count; i++) {
     wp_wl_output_t *out = &state->outputs[i];
     if (out->known && !out->has_bound_channel && out->width == width &&
@@ -66,6 +114,10 @@ static wp_wl_output_t *claim_output_for_size(wp_wl_state_t *state,
       out->bound_channel = channel;
       return out;
     }
+  }
+
+  if (!all_outputs_known(state)) {
+    return NULL;
   }
 
   wp_wl_output_t *best = NULL;
@@ -85,19 +137,14 @@ static wp_wl_output_t *claim_output_for_size(wp_wl_state_t *state,
   return best;
 }
 
-static void handle_buf(wp_wl_state_t *state, uint32_t wire_slot, uint32_t width,
-                       uint32_t height, uint32_t stride, uint64_t modifier,
-                       bool has_geometry, int32_t geom_x, int32_t geom_y,
-                       int fd) {
-  uint32_t channel = wire_slot / WP_WL_CAPTURE_SLOT_COUNT;
+static bool try_register_buf(wp_wl_state_t *state, uint32_t channel,
+                             uint32_t wire_slot, uint32_t width,
+                             uint32_t height, uint32_t stride,
+                             uint64_t modifier, bool has_geometry,
+                             int32_t geom_x, int32_t geom_y, int fd) {
   uint32_t local_idx = wire_slot % WP_WL_CAPTURE_SLOT_COUNT;
-  if (channel >= WP_WL_MAX_CAPTURE_CHANNELS) {
-    printf("[socket] bad wire slot %u, dropping\n", wire_slot);
-    close(fd);
-    return;
-  }
 
-  wp_wl_output_t *out = find_output_for_channel(state, channel);
+  wp_wl_output_t *out = wp_wl_find_output_for_channel(state, channel);
   if (!out) {
     if (has_geometry) {
       out = claim_output_for_position(state, channel, geom_x, geom_y);
@@ -106,11 +153,7 @@ static void handle_buf(wp_wl_state_t *state, uint32_t wire_slot, uint32_t width,
       out = claim_output_for_size(state, channel, width, height);
     }
     if (!out) {
-      printf("[socket] no output available for new channel %u (%ux%u), "
-             "dropping\n",
-             channel, width, height);
-      close(fd);
-      return;
+      return false;
     }
     printf("[socket] channel %u bound to output=%p at (%d,%d) for stream "
            "%ux%u%s\n",
@@ -129,7 +172,7 @@ static void handle_buf(wp_wl_state_t *state, uint32_t wire_slot, uint32_t width,
       wp_wl_create_dmabuf_buffer(state, fd, width, height, stride, modifier);
   if (!buffer) {
     close(fd);
-    return;
+    return true;
   }
 
   slot->in_use = true;
@@ -138,6 +181,8 @@ static void handle_buf(wp_wl_state_t *state, uint32_t wire_slot, uint32_t width,
   slot->fd = fd;
   slot->width = width;
   slot->height = height;
+  slot->stride = stride;
+  slot->modifier = modifier;
 
   printf("[socket] output=%p registered capture slot %u (channel=%u "
          "local=%u) %ux%u stride=%u modifier=%llu\n",
@@ -146,6 +191,60 @@ static void handle_buf(wp_wl_state_t *state, uint32_t wire_slot, uint32_t width,
 
   wp_wl_source_t source = {.kind = WP_WL_SOURCE_SLOT, .slot = wire_slot};
   wp_wl_set_current_source(out, source);
+  return true;
+}
+
+static void handle_buf(wp_wl_state_t *state, uint32_t wire_slot, uint32_t width,
+                       uint32_t height, uint32_t stride, uint64_t modifier,
+                       bool has_geometry, int32_t geom_x, int32_t geom_y,
+                       int fd) {
+  uint32_t channel = wire_slot / WP_WL_CAPTURE_SLOT_COUNT;
+  if (channel >= WP_WL_MAX_CAPTURE_CHANNELS) {
+    printf("[socket] bad wire slot %u, dropping\n", wire_slot);
+    close(fd);
+    return;
+  }
+
+  if (try_register_buf(state, channel, wire_slot, width, height, stride,
+                       modifier, has_geometry, geom_x, geom_y, fd)) {
+    return;
+  }
+
+  wp_wl_pending_buf_t *pending = &state->pending_bufs[channel];
+  if (pending->pending) {
+    close(pending->fd);
+  }
+  *pending = (wp_wl_pending_buf_t){
+      .pending = true,
+      .channel = channel,
+      .wire_slot = wire_slot,
+      .width = width,
+      .height = height,
+      .stride = stride,
+      .modifier = modifier,
+      .has_geometry = has_geometry,
+      .geom_x = geom_x,
+      .geom_y = geom_y,
+      .fd = fd,
+  };
+  printf("[socket] no output available yet for new channel %u (%ux%u), "
+         "queued for retry\n",
+         channel, width, height);
+}
+
+void wp_wl_retry_pending_bufs(wp_wl_state_t *state) {
+  for (uint32_t channel = 0; channel < WP_WL_MAX_CAPTURE_CHANNELS; channel++) {
+    wp_wl_pending_buf_t *pending = &state->pending_bufs[channel];
+    if (!pending->pending) {
+      continue;
+    }
+    if (try_register_buf(state, pending->channel, pending->wire_slot,
+                         pending->width, pending->height, pending->stride,
+                         pending->modifier, pending->has_geometry,
+                         pending->geom_x, pending->geom_y, pending->fd)) {
+      pending->pending = false;
+    }
+  }
 }
 
 void wp_wl_set_current_source(wp_wl_output_t *out, wp_wl_source_t source) {
@@ -178,7 +277,7 @@ void wp_wl_handle_capture_event(wp_wl_state_t *state,
     }
     uint32_t channel = event->slot / WP_WL_CAPTURE_SLOT_COUNT;
     uint32_t local_idx = event->slot % WP_WL_CAPTURE_SLOT_COUNT;
-    wp_wl_output_t *out = find_output_for_channel(state, channel);
+    wp_wl_output_t *out = wp_wl_find_output_for_channel(state, channel);
     if (out && out->slots[local_idx].in_use) {
       wp_wl_source_t source = {.kind = WP_WL_SOURCE_SLOT, .slot = event->slot};
       wp_wl_set_current_source(out, source);
@@ -204,6 +303,14 @@ void wp_wl_handle_capture_event(wp_wl_state_t *state,
 }
 
 void wp_wl_detach(wp_wl_state_t *state) {
+  for (uint32_t channel = 0; channel < WP_WL_MAX_CAPTURE_CHANNELS; channel++) {
+    wp_wl_pending_buf_t *pending = &state->pending_bufs[channel];
+    if (pending->pending) {
+      close(pending->fd);
+      pending->pending = false;
+    }
+  }
+
   for (size_t i = 0; i < state->output_count; i++) {
     wp_wl_output_t *out = &state->outputs[i];
     if (out->surface) {

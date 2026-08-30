@@ -21,19 +21,13 @@
  * SOFTWARE.
  */
 
-import Wallpiper from 'gi://Wallpiper?version=1.0';
-import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
+#pragma once
 
-export default class WallpiperExtension extends Extension {
-    enable() {
-        try {
-            Wallpiper.portal_start(global.backend, global.window_group, global.display);
-            console.log('[wallpiper-gnome] portal started');
-        } catch (e) {
-            console.error(`[wallpiper-gnome] portal_start() failed: ${e.message}`);
-        }
-    }
-    disable() {
-        Wallpiper.portal_stop();
-    }
-}
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+bool wp_wl_x11_output_for_position(int32_t x, int32_t y, char *name_out,
+                                   size_t name_out_len);
+bool wp_wl_x11_output_for_size(uint32_t width, uint32_t height, char *name_out,
+                               size_t name_out_len);

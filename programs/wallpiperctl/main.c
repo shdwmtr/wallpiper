@@ -23,10 +23,23 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "wallpiper/daemon_ctl_protocol.h"
 #include "wallpiper/steam_paths.h"
 #include "we_control.h"
+
+static bool resolve_absolute_path(const char *path, char *out,
+                                  size_t out_len) {
+  if (path[0] == '/') {
+    return snprintf(out, out_len, "%s", path) < (int)out_len;
+  }
+  char cwd[768];
+  if (!getcwd(cwd, sizeof(cwd))) {
+    return false;
+  }
+  return snprintf(out, out_len, "%s/%s", cwd, path) < (int)out_len;
+}
 
 static const char *const DAEMON_COMMANDS[] = {
     "debug-on",
@@ -124,6 +137,7 @@ static void print_usage(void) {
           "\n"
           "daemon commands (require a running wallpiperd):\n"
           "  debug-on | debug-off\n"
+          "  capture <monitor; int; 0-indexed> <path>\n"
           "\n"
           "wallpaper engine commands:\n"
           "  pause | play   | stop\n"
@@ -158,6 +172,24 @@ int main(int argc, char **argv) {
     ok = true;
   } else if (is_we_command(cmd)) {
     ok = run_we_command(cmd, argc, argv, err, sizeof(err));
+  } else if (strcmp(cmd, "capture") == 0) {
+    if (argc < 4) {
+      snprintf(err, sizeof(err),
+               "usage: wallpiperctl capture <monitor> <path>");
+      ok = false;
+    } else {
+      char abs_path[1024];
+      if (!resolve_absolute_path(argv[3], abs_path, sizeof(abs_path))) {
+        snprintf(err, sizeof(err), "path too long: %s", argv[3]);
+        ok = false;
+      } else {
+        const char *capture_args[] = {"capture", argv[2], abs_path};
+        ok = wp_send_daemon_command(capture_args, 3, err, sizeof(err));
+        if (ok) {
+          printf("wrote %s\n", abs_path);
+        }
+      }
+    }
   } else if (is_daemon_command(cmd)) {
     ok = wp_send_daemon_command((const char *const *)(argv + 1),
                                 (size_t)(argc - 1), err, sizeof(err));

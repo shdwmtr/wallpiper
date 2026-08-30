@@ -36,7 +36,10 @@ typedef enum {
   WP_CTL_REQUEST_DEBUG_OFF,
   WP_CTL_REQUEST_CURSOR_POS,
   WP_CTL_REQUEST_PING,
+  WP_CTL_REQUEST_CAPTURE,
 } wp_ctl_request_t;
+
+#define WP_CTL_CAPTURE_PATH_MAX 480
 
 typedef enum {
   WP_CTL_RESPONSE_OK,
@@ -56,12 +59,21 @@ typedef struct {
 bool wp_ctl_request_encode(wp_ctl_request_t request, char *out, size_t out_len);
 bool wp_ctl_request_parse(const char *line, wp_ctl_request_t *out);
 
+/* Only valid to call after wp_ctl_request_parse() returns
+ * WP_CTL_REQUEST_CAPTURE for the same line. */
+bool wp_ctl_capture_args_parse(const char *line, uint32_t *channel, char *path,
+                               size_t path_len);
+bool wp_ctl_request_encode_capture(uint32_t channel, const char *path,
+                                   char *out, size_t out_len);
+
 bool wp_ctl_response_encode(const wp_ctl_response_t *response, char *out,
                             size_t out_len);
 bool wp_ctl_response_parse(const char *line, wp_ctl_response_t *out);
 
 bool wp_send_ctl_request(const char *portal_name, wp_ctl_request_t request,
                          wp_ctl_response_t *out);
+bool wp_send_ctl_capture_request(const char *portal_name, uint32_t channel,
+                                 const char *path, wp_ctl_response_t *out);
 
 typedef struct wp_ctl_listener wp_ctl_listener_t;
 typedef void (*wp_ctl_cursor_pos_fn)(void *ctx, wp_ctl_response_t *out);
@@ -73,5 +85,10 @@ void wp_ctl_listener_stop(wp_ctl_listener_t *listener);
 
 bool wp_ctl_listener_poll(wp_ctl_listener_t *listener,
                           wp_ctl_request_t *out_request);
+/* Only valid to call after wp_ctl_listener_poll() returns true with
+ * *out_request == WP_CTL_REQUEST_CAPTURE, before replying. */
+void wp_ctl_listener_get_capture_args(wp_ctl_listener_t *listener,
+                                      uint32_t *out_channel, char *out_path,
+                                      size_t out_path_len);
 void wp_ctl_listener_reply(wp_ctl_listener_t *listener,
                            const wp_ctl_response_t *response);

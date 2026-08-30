@@ -283,7 +283,45 @@ std::optional<CtlRequest> parseCtlRequest(const std::string &line) {
     return CtlRequest::CursorPos;
   if (trimmed == "PING")
     return CtlRequest::Ping;
+  if (trimmed.rfind("CAPTURE ", 0) == 0)
+    return CtlRequest::Capture;
   return std::nullopt;
+}
+
+std::optional<CtlRequestCapture> parseCtlRequestCapture(const std::string &line) {
+  std::string trimmed = line;
+  while (!trimmed.empty() &&
+         std::isspace(static_cast<unsigned char>(trimmed.back()))) {
+    trimmed.pop_back();
+  }
+  if (trimmed.rfind("CAPTURE ", 0) != 0) {
+    return std::nullopt;
+  }
+  std::istringstream stream(trimmed.substr(8));
+  std::string channelStr;
+  if (!(stream >> channelStr)) {
+    return std::nullopt;
+  }
+  std::string rest;
+  std::getline(stream, rest);
+  size_t start = 0;
+  while (start < rest.size() &&
+         std::isspace(static_cast<unsigned char>(rest[start]))) {
+    ++start;
+  }
+  rest = rest.substr(start);
+  if (rest.empty()) {
+    return std::nullopt;
+  }
+
+  try {
+    CtlRequestCapture result;
+    result.channel = static_cast<uint32_t>(std::stoul(channelStr));
+    result.path = QString::fromStdString(rest);
+    return result;
+  } catch (const std::exception &) {
+    return std::nullopt;
+  }
 }
 
 std::string encodeCtlRequest(CtlRequest request) {
@@ -300,6 +338,8 @@ std::string encodeCtlRequest(CtlRequest request) {
     return "CURSOR_POS\n";
   case CtlRequest::Ping:
     return "PING\n";
+  case CtlRequest::Capture:
+    return {};
   }
   return {};
 }

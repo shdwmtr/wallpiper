@@ -26,6 +26,7 @@
 #include "capture_item.h"
 #include "capture_socket.h"
 #include "ctl_listener.h"
+#include "x11_output_lookup.h"
 
 #include <QCursor>
 #include <QDebug>
@@ -34,6 +35,7 @@
 #include <QTimer>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 
 #include <unistd.h>
@@ -149,6 +151,10 @@ CaptureCoordinator::CaptureCoordinator(QObject *parent)
         this, [this, enabled]() { handleSetDebug(enabled); },
         Qt::BlockingQueuedConnection);
   });
+  m_ctlListener->setCaptureHandler(
+      [this](uint32_t channel, const QString &path, QString &err) -> bool {
+        return captureChannel(channel, path, err);
+      });
 
   m_cursorTimer->setInterval(kCursorSampleIntervalMs);
   connect(m_cursorTimer, &QTimer::timeout, this, [this]() {
@@ -222,9 +228,40 @@ WallpaperCaptureItem *CaptureCoordinator::channelItem(uint32_t channel) const {
   return it == m_channelItems.end() ? nullptr : it->second;
 }
 
+WallpaperCaptureItem *
+CaptureCoordinator::claimItemByOutputName(uint32_t channel,
+                                          const QString &name) {
+  for (auto *item : m_items) {
+    bool alreadyClaimed = false;
+    for (const auto &[boundChannel, boundItem] : m_channelItems) {
+      if (boundItem == item) {
+        alreadyClaimed = true;
+        break;
+      }
+    }
+    if (alreadyClaimed) {
+      continue;
+    }
+    QScreen *screen = item->window() ? item->window()->screen() : nullptr;
+    if (screen && screen->name() == name) {
+      m_channelItems[channel] = item;
+      qInfo() << "[coordinator] channel" << channel
+              << "matched by XRandR output name" << name;
+      return item;
+    }
+  }
+  return nullptr;
+}
+
 WallpaperCaptureItem *CaptureCoordinator::claimItemForSize(uint32_t channel,
                                                            quint32 width,
                                                            quint32 height) {
+  if (auto name = x11OutputForSize(width, height)) {
+    if (WallpaperCaptureItem *item = claimItemByOutputName(channel, *name)) {
+      return item;
+    }
+  }
+
   double globalScale = xwaylandGlobalScale();
   for (auto *item : m_items) {
     bool alreadyClaimed = false;
@@ -264,6 +301,12 @@ WallpaperCaptureItem *CaptureCoordinator::claimItemForSize(uint32_t channel,
 
 WallpaperCaptureItem *
 CaptureCoordinator::claimItemForPosition(uint32_t channel, qint32 x, qint32 y) {
+  if (auto name = x11OutputForPosition(x, y)) {
+    if (WallpaperCaptureItem *item = claimItemByOutputName(channel, *name)) {
+      return item;
+    }
+  }
+
   double globalScale = xwaylandGlobalScale();
   for (auto *item : m_items) {
     bool alreadyClaimed = false;
@@ -327,6 +370,34 @@ void CaptureCoordinator::handleDetach() {
     item->requestDetach();
   }
   qInfo() << "[ctl] detached, released all buffers";
+}
+
+bool CaptureCoordinator::captureChannel(uint32_t channel, const QString &path,
+                                        QString &err) {
+  std::shared_ptr<CaptureCompletion> completion;
+  QMetaObject::invokeMethod(
+      this,
+      [this, channel, &path, &completion]() {
+        if (WallpaperCaptureItem *item = channelItem(channel)) {
+          completion = item->beginCapture(path);
+        }
+      },
+      Qt::BlockingQueuedConnection);
+
+  if (!completion) {
+    err = QStringLiteral("no wallpaper item bound to channel %1").arg(channel);
+    return false;
+  }
+
+  std::unique_lock<std::mutex> lock(completion->mutex);
+  bool signaled = completion->cv.wait_for(lock, std::chrono::seconds(8),
+                                          [&] { return completion->done; });
+  if (!signaled) {
+    err = QStringLiteral("timed out waiting for capture");
+    return false;
+  }
+  err = completion->err;
+  return completion->ok;
 }
 
 void CaptureCoordinator::handleSetDebug(bool enabled) {

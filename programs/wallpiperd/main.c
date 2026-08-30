@@ -116,16 +116,42 @@ static void *daemon_ctl_listener_thread_main(void *arg) {
       }
     }
     line[total] = '\0';
+    while (total > 0 && (line[total - 1] == '\n' || line[total - 1] == '\r')) {
+      line[--total] = '\0';
+    }
 
     char args_storage[1024];
     snprintf(args_storage, sizeof(args_storage), "%s", line);
     const char *argv_ptrs[64];
     size_t argc = 0;
-    char *saveptr = NULL;
-    char *tok = strtok_r(args_storage, " \t\r\n", &saveptr);
-    while (tok && argc < 64) {
-      argv_ptrs[argc++] = tok;
-      tok = strtok_r(NULL, " \t\r\n", &saveptr);
+
+    if (strncmp(args_storage, "capture ", 8) == 0) {
+      char *p = args_storage + 8;
+      while (*p == ' ' || *p == '\t') {
+        p++;
+      }
+      char *monitor_tok = p;
+      while (*p && *p != ' ' && *p != '\t') {
+        p++;
+      }
+      if (p != monitor_tok && *p) {
+        *p++ = '\0';
+        while (*p == ' ' || *p == '\t') {
+          p++;
+        }
+        if (*p) {
+          argv_ptrs[argc++] = "capture";
+          argv_ptrs[argc++] = monitor_tok;
+          argv_ptrs[argc++] = p;
+        }
+      }
+    } else {
+      char *saveptr = NULL;
+      char *tok = strtok_r(args_storage, " \t\r\n", &saveptr);
+      while (tok && argc < 64) {
+        argv_ptrs[argc++] = tok;
+        tok = strtok_r(NULL, " \t\r\n", &saveptr);
+      }
     }
 
     char resp[512];

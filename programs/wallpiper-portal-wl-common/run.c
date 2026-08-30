@@ -21,15 +21,19 @@
  * SOFTWARE.
  */
 
+#include "egl_capture.h"
 #include "state_internal.h"
 
 #include <math.h>
 #include <poll.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "stb_image_write.h"
 
 void wp_wl_geometry_from_scale(int32_t x, int32_t y, uint32_t width,
                                uint32_t height, double scale,
@@ -68,6 +72,34 @@ bool wp_wl_detect_geometry(wp_wl_try_geometry_fn try_fn,
   return true;
 }
 
+typedef struct {
+  uint8_t *pixels;
+  int width;
+  int height;
+  char path[WP_CTL_CAPTURE_PATH_MAX];
+  wp_ctl_listener_t *listener;
+} wp_wl_capture_job_t;
+
+static void *wp_wl_capture_encode_and_reply(void *arg) {
+  wp_wl_capture_job_t *job = arg;
+
+  wp_ctl_response_t response;
+  memset(&response, 0, sizeof(response));
+  response.tag = WP_CTL_RESPONSE_OK;
+  if (!stbi_write_png(job->path, job->width, job->height, 4, job->pixels,
+                      job->width * 4)) {
+    response.tag = WP_CTL_RESPONSE_ERR;
+    snprintf(response.err, sizeof(response.err),
+             "failed to write PNG to %.200s", job->path);
+  }
+
+  wp_ctl_listener_reply(job->listener, &response);
+
+  free(job->pixels);
+  free(job);
+  return NULL;
+}
+
 static void handle_ctl_request(wp_wl_state_t *state, wp_ctl_request_t request) {
   wp_ctl_response_t response;
   memset(&response, 0, sizeof(response));
@@ -78,7 +110,7 @@ static void handle_ctl_request(wp_wl_state_t *state, wp_ctl_request_t request) {
     // response.geometry = state->geometry;
     response.tag = WP_CTL_RESPONSE_ERR;
     snprintf(response.err, sizeof(response.err), "%s",
-            "geometry detection disabled");
+             "geometry detection disabled");
     break;
   case WP_CTL_REQUEST_DETACH:
     wp_wl_detach(state);
@@ -100,6 +132,46 @@ static void handle_ctl_request(wp_wl_state_t *state, wp_ctl_request_t request) {
   case WP_CTL_REQUEST_PING:
     response.tag = WP_CTL_RESPONSE_OK;
     break;
+  case WP_CTL_REQUEST_CAPTURE: {
+    uint32_t channel = 0;
+    char path[WP_CTL_CAPTURE_PATH_MAX];
+    wp_ctl_listener_get_capture_args(state->ctl_listener, &channel, path,
+                                     sizeof(path));
+
+    uint8_t *pixels = NULL;
+    int width = 0, height = 0;
+    if (!wp_wl_egl_capture_readback(state, channel, &pixels, &width, &height,
+                                    response.err, sizeof(response.err))) {
+      response.tag = WP_CTL_RESPONSE_ERR;
+      break;
+    }
+
+    wp_wl_capture_job_t *job = malloc(sizeof(*job));
+    if (!job) {
+      free(pixels);
+      response.tag = WP_CTL_RESPONSE_ERR;
+      snprintf(response.err, sizeof(response.err), "%s", "out of memory");
+      break;
+    }
+    job->pixels = pixels;
+    job->width = width;
+    job->height = height;
+    snprintf(job->path, sizeof(job->path), "%s", path);
+    job->listener = state->ctl_listener;
+
+    pthread_t thread;
+    if (pthread_create(&thread, NULL, wp_wl_capture_encode_and_reply, job) !=
+        0) {
+      free(pixels);
+      free(job);
+      response.tag = WP_CTL_RESPONSE_ERR;
+      snprintf(response.err, sizeof(response.err), "%s",
+               "failed to spawn capture encode thread");
+      break;
+    }
+    pthread_detach(thread);
+    return;
+  }
   default:
     response.tag = WP_CTL_RESPONSE_ERR;
     snprintf(response.err, sizeof(response.err), "%s", "unrecognized command");
@@ -121,10 +193,11 @@ void wp_wl_portal_run(const wp_wl_portal_config_t *config) {
 
   // wp_wl_detect_geometry(config->try_geometry, &state.geometry);
   // printf(
-  //     "detected monitor geometry: x=%d y=%d %ux%u logical=%ux%u scale=%.4f\n",
-  //     state.geometry.x, state.geometry.y, state.geometry.width,
-  //     state.geometry.height, state.geometry.logical_width,
-  //     state.geometry.logical_height, state.geometry.scale);
+  //     "detected monitor geometry: x=%d y=%d %ux%u logical=%ux%u
+  //     scale=%.4f\n", state.geometry.x, state.geometry.y,
+  //     state.geometry.width, state.geometry.height,
+  //     state.geometry.logical_width, state.geometry.logical_height,
+  //     state.geometry.scale);
 
   state.display = wl_display_connect(NULL);
   if (!state.display) {

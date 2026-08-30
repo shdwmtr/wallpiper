@@ -75,6 +75,10 @@ void CtlListener::setDebugHandler(DebugHandler handler) {
   m_debugHandler = std::move(handler);
 }
 
+void CtlListener::setCaptureHandler(CaptureHandler handler) {
+  m_captureHandler = std::move(handler);
+}
+
 void CtlListener::run() {
   const std::string path =
       WallpiperProtocol::ctlSocketPath(m_portalName).toStdString();
@@ -182,6 +186,24 @@ void CtlListener::handleConnection(int clientFd) {
   case WallpiperProtocol::CtlRequest::Ping:
     response = WallpiperProtocol::CtlResponseOk{};
     break;
+  case WallpiperProtocol::CtlRequest::Capture: {
+    auto args = WallpiperProtocol::parseCtlRequestCapture(line);
+    if (!args) {
+      response = WallpiperProtocol::CtlResponseErr{"malformed capture request"};
+      break;
+    }
+    if (!m_captureHandler) {
+      response = WallpiperProtocol::CtlResponseErr{"capture unavailable"};
+      break;
+    }
+    QString err;
+    if (m_captureHandler(args->channel, args->path, err)) {
+      response = WallpiperProtocol::CtlResponseOk{};
+    } else {
+      response = WallpiperProtocol::CtlResponseErr{err.toStdString()};
+    }
+    break;
+  }
   }
   writeResponse(response);
 }

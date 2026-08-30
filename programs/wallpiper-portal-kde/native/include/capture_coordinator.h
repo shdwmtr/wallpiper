@@ -49,6 +49,7 @@ public:
   void registerItem(WallpaperCaptureItem *item);
   void unregisterItem(WallpaperCaptureItem *item);
   void reevaluateActiveItem();
+  bool captureChannel(uint32_t channel, const QString &path, QString &err);
 
 private:
   explicit CaptureCoordinator(QObject *parent = nullptr);
@@ -62,6 +63,8 @@ private:
                                              qint32 y);
   WallpaperCaptureItem *claimItemForSize(uint32_t channel, quint32 width,
                                          quint32 height);
+  WallpaperCaptureItem *claimItemByOutputName(uint32_t channel,
+                                              const QString &name);
 
   std::optional<WallpiperProtocol::MonitorGeometry>
   geometryFromActiveItem() const;

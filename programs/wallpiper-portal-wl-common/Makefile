@@ -25,22 +25,27 @@ CC ?= cc
 WAYLAND_SCANNER ?= wayland-scanner
 WAYLAND_PROTOCOLS_DIR := $(shell pkg-config --variable=pkgdatadir wayland-protocols)
 WAYLAND_CFLAGS := $(shell pkg-config --cflags wayland-client)
+EGL_CFLAGS := $(shell pkg-config --cflags egl gbm)
+X11_CFLAGS := $(shell pkg-config --cflags x11 xrandr)
 
 TARGET_DIR := ../../build/release
 OBJ_DIR := ../../build/objects/wallpiper-portal-wl-common
 GEN_DIR := $(OBJ_DIR)/generated
 LIB := $(TARGET_DIR)/libwallpiper-portal-wl-common.a
 CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
-CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I. -I../../include -I$(GEN_DIR) $(WAYLAND_CFLAGS)
+CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I. -I../../include -I../../libs/stb -I$(GEN_DIR) $(WAYLAND_CFLAGS) $(EGL_CFLAGS) $(X11_CFLAGS)
 
 SRCS := \
 	buffers.c \
+	egl_capture.c \
 	layer_surface.c \
 	registry.c \
 	run.c \
-	state.c
+	state.c \
+	x11_output_lookup.c
 
 OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
+STB_OBJ := $(OBJ_DIR)/stb_image_write_impl.o
 
 GEN_HEADERS := \
 	$(GEN_DIR)/wlr-layer-shell-unstable-v1-client-protocol.h \
@@ -58,11 +63,14 @@ GEN_OBJS := \
 
 build: $(LIB)
 
-$(LIB): $(OBJS) $(GEN_OBJS) | $(TARGET_DIR)
+$(LIB): $(OBJS) $(GEN_OBJS) $(STB_OBJ) | $(TARGET_DIR)
 	rm -f $@
-	ar rcs $@ $(OBJS) $(GEN_OBJS)
+	ar rcs $@ $(OBJS) $(GEN_OBJS) $(STB_OBJ)
 
 $(OBJ_DIR)/%.o: %.c $(GEN_HEADERS) | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(STB_OBJ): ../../libs/stb/stb_image_write_impl.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(GEN_DIR)/wlr-layer-shell-unstable-v1-client-protocol.h $(GEN_DIR)/wlr-layer-shell-unstable-v1-protocol.c &: protocols/wlr-layer-shell-unstable-v1.xml | $(GEN_DIR)

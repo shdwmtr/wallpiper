@@ -25,7 +25,7 @@ CC ?= cc
 XCB_CFLAGS := $(shell pkg-config --cflags xcb xcb-dri3 xcb-shm)
 XCB_LIBS := $(shell pkg-config --libs xcb xcb-dri3 xcb-shm)
 CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
-CFLAGS += -fPIC -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../include -I../../libs/cjson $(XCB_CFLAGS)
+CFLAGS += -fPIC -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../include -I../../libs/cjson -I../../libs/stb $(XCB_CFLAGS)
 
 TARGET_DIR := ../../build/release
 OBJ_DIR := ../../build/objects/wallpiper-portal-i3
@@ -36,15 +36,19 @@ SRCS := \
 	main.c
 
 OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
+STB_OBJ := $(OBJ_DIR)/stb_image_write_impl.o
 
 .PHONY: build clean FORCE
 
 build: $(BIN)
 
-$(BIN): $(OBJS) $(PROTOCOL_LIB) | $(TARGET_DIR)
-	$(CC) $(CFLAGS) -Wl,--gc-sections -s -o $@ $(OBJS) $(PROTOCOL_LIB) -lpthread -lm $(XCB_LIBS)
+$(BIN): $(OBJS) $(STB_OBJ) $(PROTOCOL_LIB) | $(TARGET_DIR)
+	$(CC) $(CFLAGS) -Wl,--gc-sections -s -o $@ $(OBJS) $(STB_OBJ) $(PROTOCOL_LIB) -lpthread -lm $(XCB_LIBS)
 
 $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(STB_OBJ): ../../libs/stb/stb_image_write_impl.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(PROTOCOL_LIB): FORCE

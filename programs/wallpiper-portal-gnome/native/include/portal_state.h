@@ -43,6 +43,7 @@ typedef struct {
   ClutterActor *display_actor;
   WallpiperCaptureSlot slots[WP_CAPTURE_SLOT_COUNT];
   WallpiperMonitorGeometry monitor;
+  gint current_slot_idx;
 } WallpiperCaptureChannel;
 
 typedef struct _WallpiperPortalState {

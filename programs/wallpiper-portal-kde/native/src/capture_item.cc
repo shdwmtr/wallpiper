@@ -38,6 +38,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <thread>
 
 #include <sys/mman.h>
 #include <unistd.h>
@@ -61,7 +62,9 @@ bool ensureBlitProgram(QOpenGLExtraFunctions *gl, BlitProgramState &state,
                         "  uv = pos * 0.5 + 0.5;\n"
                         "  gl_Position = vec4(pos, 0.0, 1.0);\n"
                         "}\n";
-    const char *fsSrc = "precision mediump float;\n"
+    const char *fsSrc = "#ifdef GL_ES\n"
+                        "precision mediump float;\n"
+                        "#endif\n"
                         "uniform sampler2D tex;\n"
                         "varying vec2 uv;\n"
                         "void main() {\n"
@@ -270,6 +273,17 @@ void WallpaperCaptureItem::clearDisplay() {
 void WallpaperCaptureItem::requestDetach() {
   m_pendingDetach = true;
   requestUpdate();
+}
+
+std::shared_ptr<CaptureCompletion>
+WallpaperCaptureItem::beginCapture(const QString &path) {
+  auto completion = std::make_shared<CaptureCompletion>();
+  {
+    std::lock_guard<std::mutex> lock(m_pendingCaptureMutex);
+    m_pendingCapture = PendingCapture{path, completion};
+  }
+  requestUpdate();
+  return completion;
 }
 
 void WallpaperCaptureItem::setDebugEnabled(bool enabled) {
@@ -522,6 +536,10 @@ QSGNode *WallpaperCaptureItem::updatePaintNode(QSGNode *oldNode,
   }
 
   QSGTexture *texture = nullptr;
+  GLuint captureFbo = 0;
+  int captureWidth = 0;
+  int captureHeight = 0;
+  bool captureAvailable = false;
   if (m_currentIsShm) {
     texture = m_shmTexture.get();
   } else if (m_currentSlot) {
@@ -543,11 +561,67 @@ QSGNode *WallpaperCaptureItem::updatePaintNode(QSGNode *oldNode,
         }
       }
       texture = it->second.sgTexture.get();
+      captureFbo = it->second.blitFbo;
+      captureWidth = static_cast<int>(it->second.width);
+      captureHeight = static_cast<int>(it->second.height);
+      captureAvailable = captureFbo != 0;
     } else if (haveNewFrame && newFrameSyncFd >= 0) {
       ::close(newFrameSyncFd);
     }
   } else if (haveNewFrame && newFrameSyncFd >= 0) {
     ::close(newFrameSyncFd);
+  }
+
+  std::optional<PendingCapture> pendingCapture;
+  {
+    std::lock_guard<std::mutex> lock(m_pendingCaptureMutex);
+    pendingCapture = m_pendingCapture;
+    m_pendingCapture.reset();
+  }
+  if (pendingCapture) {
+    const QString &capturePath = pendingCapture->path;
+    const auto &completion = pendingCapture->completion;
+    bool ok = false;
+    QString captureErr;
+    QImage image;
+    if (!captureAvailable) {
+      captureErr = QStringLiteral("no active wallpaper frame to capture");
+    } else if (auto *ctx = QOpenGLContext::currentContext()) {
+      auto *gl = ctx->extraFunctions();
+      image = QImage(captureWidth, captureHeight, QImage::Format_RGBA8888);
+      GLint prevFbo = 0;
+      gl->glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFbo);
+      gl->glBindFramebuffer(GL_FRAMEBUFFER, captureFbo);
+      gl->glReadPixels(0, 0, captureWidth, captureHeight, GL_RGBA,
+                       GL_UNSIGNED_BYTE, image.bits());
+      gl->glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
+      ok = true;
+    } else {
+      captureErr = QStringLiteral("no OpenGL context on render thread");
+    }
+
+    if (ok) {
+      std::thread([image, capturePath, completion]() mutable {
+        bool saved = image.save(capturePath, "PNG");
+        QString err;
+        if (!saved) {
+          err = QStringLiteral("failed to write PNG to %1").arg(capturePath);
+        }
+        {
+          std::lock_guard<std::mutex> lock(completion->mutex);
+          completion->ok = saved;
+          completion->err = err;
+          completion->done = true;
+        }
+        completion->cv.notify_all();
+      }).detach();
+    } else {
+      std::lock_guard<std::mutex> lock(completion->mutex);
+      completion->ok = false;
+      completion->err = captureErr;
+      completion->done = true;
+      completion->cv.notify_all();
+    }
   }
 
   if (!texture) {

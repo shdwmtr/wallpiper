@@ -22,6 +22,7 @@
  */
 
 #include <poll.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,6 +36,7 @@
 #include <xcb/xproto.h>
 
 #include <cJSON.h>
+#include <stb_image_write.h>
 
 #include "wallpiper/capture_socket.h"
 #include "wallpiper/ctl_protocol.h"
@@ -594,6 +596,94 @@ static void handle_x_event(wp_i3_state_t *state, xcb_generic_event_t *event) {
   }
 }
 
+static bool capture_channel_readback(wp_i3_state_t *state, uint32_t channel,
+                                     uint8_t **out_pixels, int *out_width,
+                                     int *out_height, char *err,
+                                     size_t err_len) {
+  wp_i3_output_t *out = find_output_for_channel(state, channel);
+  if (!out || out->current_source_kind != WP_I3_SOURCE_SLOT) {
+    snprintf(err, err_len, "no active wallpaper frame on channel %u", channel);
+    return false;
+  }
+
+  uint32_t local_idx = out->current_source_slot % WP_I3_CAPTURE_SLOT_COUNT;
+  wp_i3_slot_t *slot = &out->slots[local_idx];
+  if (!slot->in_use || slot->slot != out->current_source_slot) {
+    snprintf(err, err_len, "no active wallpaper frame on channel %u", channel);
+    return false;
+  }
+
+  xcb_get_image_cookie_t cookie =
+      xcb_get_image(state->conn, XCB_IMAGE_FORMAT_Z_PIXMAP, slot->pixmap, 0, 0,
+                    (uint16_t)slot->width, (uint16_t)slot->height, ~0u);
+  xcb_generic_error_t *get_err = NULL;
+  xcb_get_image_reply_t *reply =
+      xcb_get_image_reply(state->conn, cookie, &get_err);
+  if (!reply) {
+    snprintf(err, err_len, "%s", "xcb_get_image failed");
+    free(get_err);
+    return false;
+  }
+
+  size_t expected = (size_t)slot->width * slot->height * 4;
+  uint8_t *data = xcb_get_image_data(reply);
+  size_t data_len = (size_t)xcb_get_image_data_length(reply);
+  if (data_len < expected) {
+    snprintf(err, err_len, "%s",
+             "xcb_get_image returned less data than expected");
+    free(reply);
+    return false;
+  }
+
+  uint8_t *pixels = malloc(expected);
+  if (!pixels) {
+    snprintf(err, err_len, "%s", "out of memory");
+    free(reply);
+    return false;
+  }
+
+  for (size_t i = 0; i < expected; i += 4) {
+    pixels[i + 0] = data[i + 2];
+    pixels[i + 1] = data[i + 1];
+    pixels[i + 2] = data[i + 0];
+    pixels[i + 3] = 0xff;
+  }
+  free(reply);
+
+  *out_pixels = pixels;
+  *out_width = (int)slot->width;
+  *out_height = (int)slot->height;
+  return true;
+}
+
+typedef struct {
+  uint8_t *pixels;
+  int width;
+  int height;
+  char path[WP_CTL_CAPTURE_PATH_MAX];
+  wp_ctl_listener_t *listener;
+} wp_i3_capture_job_t;
+
+static void *capture_encode_and_reply(void *arg) {
+  wp_i3_capture_job_t *job = arg;
+
+  wp_ctl_response_t response;
+  memset(&response, 0, sizeof(response));
+  response.tag = WP_CTL_RESPONSE_OK;
+  if (!stbi_write_png(job->path, job->width, job->height, 4, job->pixels,
+                      job->width * 4)) {
+    response.tag = WP_CTL_RESPONSE_ERR;
+    snprintf(response.err, sizeof(response.err),
+             "failed to write PNG to %.200s", job->path);
+  }
+
+  wp_ctl_listener_reply(job->listener, &response);
+
+  free(job->pixels);
+  free(job);
+  return NULL;
+}
+
 static void handle_ctl_request(wp_i3_state_t *state, wp_ctl_request_t request,
                                wp_ctl_listener_t *listener) {
   wp_ctl_response_t response;
@@ -605,7 +695,7 @@ static void handle_ctl_request(wp_i3_state_t *state, wp_ctl_request_t request,
     // response.geometry = state->geometry;
     response.tag = WP_CTL_RESPONSE_ERR;
     snprintf(response.err, sizeof(response.err), "%s",
-            "geometry detection disabled");
+             "geometry detection disabled");
     break;
   case WP_CTL_REQUEST_DETACH:
     detach(state);
@@ -627,6 +717,46 @@ static void handle_ctl_request(wp_i3_state_t *state, wp_ctl_request_t request,
   case WP_CTL_REQUEST_PING:
     response.tag = WP_CTL_RESPONSE_OK;
     break;
+  case WP_CTL_REQUEST_CAPTURE: {
+    uint32_t channel = 0;
+    char path[WP_CTL_CAPTURE_PATH_MAX];
+    wp_ctl_listener_get_capture_args(listener, &channel, path, sizeof(path));
+
+    uint8_t *pixels = NULL;
+    int width = 0, height = 0;
+    if (!capture_channel_readback(state, channel, &pixels, &width, &height,
+                                  response.err, sizeof(response.err))) {
+      response.tag = WP_CTL_RESPONSE_ERR;
+      break;
+    }
+
+    wp_i3_capture_job_t *job = malloc(sizeof(*job));
+    if (!job) {
+      free(pixels);
+      response.tag = WP_CTL_RESPONSE_ERR;
+      snprintf(response.err, sizeof(response.err), "%s", "out of memory");
+      break;
+    }
+    job->pixels = pixels;
+    job->width = width;
+    job->height = height;
+    snprintf(job->path, sizeof(job->path), "%s", path);
+    job->listener = listener;
+
+    pthread_t thread;
+    if (pthread_create(&thread, NULL, capture_encode_and_reply, job) != 0) {
+      free(pixels);
+      free(job);
+      response.tag = WP_CTL_RESPONSE_ERR;
+      snprintf(response.err, sizeof(response.err), "%s",
+               "failed to spawn capture encode thread");
+      break;
+    }
+    pthread_detach(thread);
+    /* The worker thread replies once the PNG is written -- don't fall
+     * through to the trailing wp_ctl_listener_reply() below. */
+    return;
+  }
   default:
     response.tag = WP_CTL_RESPONSE_ERR;
     snprintf(response.err, sizeof(response.err), "%s", "unrecognized command");

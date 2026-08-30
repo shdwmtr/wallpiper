@@ -31,8 +31,10 @@
 #include <qopengl.h>
 #include <qqmlintegration.h>
 
+#include <condition_variable>
 #include <deque>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <unordered_map>
 
@@ -45,6 +47,14 @@ struct BlitProgramState {
   GLuint vbo = 0;
   bool ready = false;
   bool failed = false;
+};
+
+struct CaptureCompletion {
+  std::mutex mutex;
+  std::condition_variable cv;
+  bool done = false;
+  bool ok = false;
+  QString err;
 };
 
 class WallpaperCaptureItem : public QQuickItem {
@@ -70,6 +80,8 @@ public:
   void clearDisplay();
   void requestDetach();
   void setDebugEnabled(bool enabled);
+
+  std::shared_ptr<CaptureCompletion> beginCapture(const QString &path);
 
   bool debugEnabled() const { return m_debugEnabled; }
   int displayFps() const { return m_displayFps; }
@@ -122,6 +134,11 @@ private:
     int syncFd = -1;
   };
 
+  struct PendingCapture {
+    QString path;
+    std::shared_ptr<CaptureCompletion> completion;
+  };
+
   void destroySlot(quint32 slot);
   void destroyAllSlots();
   bool reimportSlot(quint32 slot);
@@ -144,6 +161,9 @@ private:
   std::optional<PendingShm> m_pendingShm;
   std::optional<PendingSource> m_pendingSource;
   bool m_pendingDetach = false;
+
+  std::mutex m_pendingCaptureMutex;
+  std::optional<PendingCapture> m_pendingCapture;
 
   std::optional<quint32> m_currentSlot;
   bool m_currentIsShm = false;

@@ -31,8 +31,6 @@
 #include "portal_state.h"
 #include "protocol.h"
 
-#include <meta/meta-context.h>
-
 static WallpiperPortalState *portal_state = NULL;
 
 static void on_monitors_changed(MetaMonitorManager *manager,
@@ -71,7 +69,7 @@ static void on_monitors_changed(MetaMonitorManager *manager,
 }
 
 gboolean wallpiper_portal_start(GObject *backend_obj, GObject *parent_obj,
-                                GError **error) {
+                                GObject *display_obj, GError **error) {
   if (portal_state) {
     g_set_error(error, WALLPIPER_ERROR, 0, "portal already running");
     return FALSE;
@@ -86,6 +84,12 @@ gboolean wallpiper_portal_start(GObject *backend_obj, GObject *parent_obj,
   if (!CLUTTER_IS_ACTOR(parent_obj)) {
     g_set_error(error, WALLPIPER_ERROR, 0,
                 "parent argument is not a ClutterActor");
+    return FALSE;
+  }
+
+  if (!META_IS_DISPLAY(display_obj)) {
+    g_set_error(error, WALLPIPER_ERROR, 0,
+                "display argument is not a MetaDisplay");
     return FALSE;
   }
 
@@ -111,6 +115,9 @@ gboolean wallpiper_portal_start(GObject *backend_obj, GObject *parent_obj,
   state->cogl_context = cogl_context;
   state->egl_display = egl_display;
   // state->geometry = geometry;
+  for (int ch = 0; ch < WP_MAX_CAPTURE_CHANNELS; ch++) {
+    state->channels[ch].current_slot_idx = -1;
+  }
 
   ClutterActor *parent = CLUTTER_ACTOR(parent_obj);
   state->parent = parent;
@@ -123,9 +130,7 @@ gboolean wallpiper_portal_start(GObject *backend_obj, GObject *parent_obj,
                          G_CALLBACK(on_monitors_changed), state);
   }
 
-  MetaContext *meta_context = meta_backend_get_context(backend);
-  state->meta_display =
-      meta_context ? meta_context_get_display(meta_context) : NULL;
+  state->meta_display = META_DISPLAY(display_obj);
   wallpiper_actor_stacking_connect(state);
 
   if (!wallpiper_capture_listener_start(state, error)) {
