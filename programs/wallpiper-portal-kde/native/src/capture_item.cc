@@ -61,9 +61,8 @@ bool ensureBlitProgram(QOpenGLExtraFunctions *gl, BlitProgramState &state,
                         "  uv = pos * 0.5 + 0.5;\n"
                         "  gl_Position = vec4(pos, 0.0, 1.0);\n"
                         "}\n";
-    const char *fsSrc = "#extension GL_OES_EGL_image_external : require\n"
-                        "precision mediump float;\n"
-                        "uniform samplerExternalOES tex;\n"
+    const char *fsSrc = "precision mediump float;\n"
+                        "uniform sampler2D tex;\n"
                         "varying vec2 uv;\n"
                         "void main() {\n"
                         "  gl_FragColor = texture2D(tex, uv);\n"

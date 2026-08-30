@@ -35,7 +35,7 @@ QT_FORWARD_DECLARE_CLASS(QSGTexture)
 
 namespace WallpiperKde {
 
-constexpr unsigned int kGlTextureExternalOes = 0x8D65;
+constexpr unsigned int kGlTextureExternalOes = 0x0DE1; // GL_TEXTURE_2D
 
 class EglDmabufImporter {
 public:
