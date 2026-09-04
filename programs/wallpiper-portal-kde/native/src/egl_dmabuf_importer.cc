@@ -39,8 +39,6 @@
 namespace WallpiperKde {
 
 namespace {
-constexpr uint32_t kDrmFormatXrgb8888 = 0x34325258;
-
 struct FdCloser {
   int fd;
   ~FdCloser() { ::close(fd); }
@@ -131,7 +129,8 @@ bool EglDmabufImporter::ensureBound(QQuickWindow *window) {
 
 std::optional<EglDmabufImporter::Import>
 EglDmabufImporter::importDmabuf(int width, int height, uint32_t stride,
-                                uint64_t modifier, int fd) const {
+                                uint64_t modifier, uint32_t drmFourcc,
+                                int fd) const {
   const FdCloser fdCloser{fd};
 
   if (!isBound()) {
@@ -147,7 +146,7 @@ EglDmabufImporter::importDmabuf(int width, int height, uint32_t stride,
       EGL_HEIGHT,
       height,
       EGL_LINUX_DRM_FOURCC_EXT,
-      static_cast<EGLAttrib>(kDrmFormatXrgb8888),
+      static_cast<EGLAttrib>(drmFourcc),
       EGL_DMA_BUF_PLANE0_FD_EXT,
       fd,
       EGL_DMA_BUF_PLANE0_OFFSET_EXT,
@@ -198,7 +197,8 @@ EglDmabufImporter::importDmabuf(int width, int height, uint32_t stride,
 
 std::optional<EGLImageKHR>
 EglDmabufImporter::createImageOnly(int width, int height, uint32_t stride,
-                                   uint64_t modifier, int fd) const {
+                                   uint64_t modifier, uint32_t drmFourcc,
+                                   int fd) const {
   const FdCloser fdCloser{fd};
 
   if (!isBound()) {
@@ -214,7 +214,7 @@ EglDmabufImporter::createImageOnly(int width, int height, uint32_t stride,
       EGL_HEIGHT,
       height,
       EGL_LINUX_DRM_FOURCC_EXT,
-      static_cast<EGLAttrib>(kDrmFormatXrgb8888),
+      static_cast<EGLAttrib>(drmFourcc),
       EGL_DMA_BUF_PLANE0_FD_EXT,
       fd,
       EGL_DMA_BUF_PLANE0_OFFSET_EXT,

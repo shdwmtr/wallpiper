@@ -27,6 +27,8 @@
 #include "error.h"
 #include "monitor_geometry.h"
 
+#include <wallpiper/vk_format.h>
+
 #include <errno.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <glib-unix.h>
@@ -218,6 +220,7 @@ static void handle_buf_message(WallpiperPortalState *state, char **parts,
   guint32 wire_slot = (guint32)g_ascii_strtoull(parts[1], NULL, 10);
   guint32 width = (guint32)g_ascii_strtoull(parts[2], NULL, 10);
   guint32 height = (guint32)g_ascii_strtoull(parts[3], NULL, 10);
+  guint32 format = (guint32)g_ascii_strtoull(parts[4], NULL, 10);
   guint32 stride = (guint32)g_ascii_strtoull(parts[5], NULL, 10);
   guint64 modifier = g_ascii_strtoull(parts[6], NULL, 10);
 
@@ -272,15 +275,19 @@ static void handle_buf_message(WallpiperPortalState *state, char **parts,
               has_geometry ? " (matched by real window position)" : "");
   }
 
-  g_message("wallpiper-gnome: BUF channel=%u local=%u %ux%u stride=%u "
-            "modifier=0x%llx fd=%d",
-            channel_idx, local_idx, width, height, stride,
+  gboolean format_matched = FALSE;
+  guint32 fourcc =
+      wp_drm_fourcc_from_vk_format(format, &format_matched);
+  g_message("wallpiper-gnome: BUF channel=%u local=%u %ux%u VkFormat=%u -> "
+            "DRM fourcc 0x%08x%s stride=%u modifier=0x%llx fd=%d",
+            channel_idx, local_idx, width, height, format, fourcc,
+            format_matched ? "" : " (unrecognized, defaulted)", stride,
             (unsigned long long)modifier, dmabuf_fd);
 
   GError *local_error = NULL;
   CoglTexture *texture = wallpiper_egl_import_dmabuf(
-      state->cogl_context, state->egl_display, dmabuf_fd, width, height, stride,
-      0, modifier, &local_error);
+      state->cogl_context, state->egl_display, dmabuf_fd, width, height,
+      format, stride, 0, modifier, &local_error);
   close(dmabuf_fd);
 
   if (!texture) {

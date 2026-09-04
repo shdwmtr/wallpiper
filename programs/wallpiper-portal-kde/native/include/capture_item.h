@@ -73,8 +73,8 @@ public:
 
   void componentComplete() override;
 
-  void stageBuf(quint32 slot, quint32 width, quint32 height, quint32 stride,
-                quint64 modifier, int fd, int syncFd);
+  void stageBuf(quint32 slot, quint32 width, quint32 height, quint32 format,
+                quint32 stride, quint64 modifier, int fd, int syncFd);
   void stageFrame(quint32 slot, int syncFd);
   void stageShm(quint32 width, quint32 height, quint32 stride, int fd);
   void clearDisplay();
@@ -104,6 +104,7 @@ private:
     EglDmabufImporter::Import import;
     quint32 width = 0;
     quint32 height = 0;
+    quint32 format = 0;
     quint32 stride = 0;
     quint64 modifier = 0;
     int memFd = -1;
@@ -116,6 +117,7 @@ private:
     quint32 slot = 0;
     quint32 width = 0;
     quint32 height = 0;
+    quint32 format = 0;
     quint32 stride = 0;
     quint64 modifier = 0;
     int fd = -1;
@@ -167,6 +169,8 @@ private:
 
   std::optional<quint32> m_currentSlot;
   bool m_currentIsShm = false;
+
+  std::optional<quint32> m_loggedFormat;
 
   bool m_debugEnabled = false;
   int m_displayFps = 0;

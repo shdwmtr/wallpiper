@@ -58,6 +58,7 @@ struct BufEvent {
   uint32_t slot = 0;
   uint32_t width = 0;
   uint32_t height = 0;
+  uint32_t format = 0;
   uint32_t stride = 0;
   uint64_t modifier = 0;
   bool hasGeometry = false;

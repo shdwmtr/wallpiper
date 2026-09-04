@@ -403,8 +403,8 @@ static wp_i3_output_t *claim_output_for_size(wp_i3_state_t *state,
 }
 
 static void handle_buf(wp_i3_state_t *state, uint32_t wire_slot, uint32_t width,
-                       uint32_t height, uint32_t stride, uint64_t modifier,
-                       int fd) {
+                       uint32_t height, uint32_t format, uint32_t stride,
+                       uint64_t modifier, int fd) {
   uint32_t channel = wire_slot / WP_I3_CAPTURE_SLOT_COUNT;
   uint32_t local_idx = wire_slot % WP_I3_CAPTURE_SLOT_COUNT;
   if (channel >= WP_I3_MAX_CAPTURE_CHANNELS) {
@@ -452,9 +452,11 @@ static void handle_buf(wp_i3_state_t *state, uint32_t wire_slot, uint32_t width,
   slot->height = height;
 
   printf("[socket] output=%s registered capture slot %u (channel=%u "
-         "local=%u) %ux%u stride=%u modifier=%llu\n",
-         out->name, wire_slot, channel, local_idx, width, height, stride,
-         (unsigned long long)modifier);
+         "local=%u) %ux%u VkFormat=%u stride=%u modifier=%llu (dri3 pixmap "
+         "import assumes the server's default 24/32-bit TrueColor visual "
+         "layout, not this format)\n",
+         out->name, wire_slot, channel, local_idx, width, height, format,
+         stride, (unsigned long long)modifier);
   set_current_source(state, out, WP_I3_SOURCE_SLOT, wire_slot);
 }
 
@@ -521,8 +523,8 @@ static void handle_capture_event(wp_i3_state_t *state,
     if (event->nfds > 1) {
       close(event->fds[1]);
     }
-    handle_buf(state, event->slot, event->width, event->height, event->stride,
-               event->modifier, image_fd);
+    handle_buf(state, event->slot, event->width, event->height,
+               event->format, event->stride, event->modifier, image_fd);
     break;
   }
   case WP_CAPTURE_EVENT_FRAME: {

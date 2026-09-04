@@ -44,7 +44,6 @@
 
 #define WP_WL_MAX_OUTPUTS WP_WL_MAX_CAPTURE_CHANNELS
 #define WP_WL_DMABUF_MIN_VERSION 2
-#define WP_WL_DRM_FORMAT_XRGB8888 0x34325258u
 
 typedef struct {
   bool in_use;
@@ -53,6 +52,7 @@ typedef struct {
   int fd;
   uint32_t width;
   uint32_t height;
+  uint32_t format;
   uint32_t stride;
   uint64_t modifier;
 } wp_wl_slot_t;
@@ -78,6 +78,7 @@ typedef struct {
   uint32_t wire_slot;
   uint32_t width;
   uint32_t height;
+  uint32_t format;
   uint32_t stride;
   uint64_t modifier;
   bool has_geometry;
@@ -176,5 +177,5 @@ void wp_wl_ensure_debug_surface(wp_wl_state_t *state);
 
 struct wl_buffer *wp_wl_create_dmabuf_buffer(wp_wl_state_t *state, int fd,
                                              uint32_t width, uint32_t height,
-                                             uint32_t stride,
+                                             uint32_t format, uint32_t stride,
                                              uint64_t modifier);

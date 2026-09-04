@@ -24,6 +24,8 @@
 #include "egl_capture.h"
 #include "state_internal.h"
 
+#include <wallpiper/vk_format.h>
+
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -278,6 +280,7 @@ bool wp_wl_egl_capture_readback(wp_wl_state_t *state, uint32_t channel,
   const int width = (int)slot->width;
   const int height = (int)slot->height;
 
+  const uint32_t fourcc = wp_drm_fourcc_from_vk_format(slot->format, NULL);
   const EGLint modifier_lo = (EGLint)(slot->modifier & 0xffffffffu);
   const EGLint modifier_hi = (EGLint)(slot->modifier >> 32);
   const EGLint image_attribs[] = {
@@ -286,7 +289,7 @@ bool wp_wl_egl_capture_readback(wp_wl_state_t *state, uint32_t channel,
       EGL_HEIGHT,
       height,
       EGL_LINUX_DRM_FOURCC_EXT,
-      (EGLint)WP_WL_DRM_FORMAT_XRGB8888,
+      (EGLint)fourcc,
       EGL_DMA_BUF_PLANE0_FD_EXT,
       slot->fd,
       EGL_DMA_BUF_PLANE0_OFFSET_EXT,

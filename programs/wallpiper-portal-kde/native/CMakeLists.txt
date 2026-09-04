@@ -45,6 +45,7 @@ qt_add_qml_module(wallpiper_capture_plugin
 target_include_directories(wallpiper_capture_plugin PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../include
 )
 
 target_link_libraries(wallpiper_capture_plugin PRIVATE

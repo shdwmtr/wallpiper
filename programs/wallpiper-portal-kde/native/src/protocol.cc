@@ -117,6 +117,7 @@ std::optional<SocketEvent> parseEvent(const std::string &header,
       event.slot = static_cast<uint32_t>(std::stoul(parts[1]));
       event.width = static_cast<uint32_t>(std::stoul(parts[2]));
       event.height = static_cast<uint32_t>(std::stoul(parts[3]));
+      event.format = static_cast<uint32_t>(std::stoul(parts[4]));
       event.stride = static_cast<uint32_t>(std::stoul(parts[5]));
       event.modifier = std::stoull(parts[6]);
       if (parts.size() >= 9) {

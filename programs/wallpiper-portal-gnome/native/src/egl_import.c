@@ -24,6 +24,8 @@
 #include "egl_import.h"
 #include "error.h"
 
+#include <wallpiper/vk_format.h>
+
 #include <EGL/eglext.h>
 #include <drm_fourcc.h>
 #include <unistd.h>
@@ -91,9 +93,12 @@ void wallpiper_egl_wait_sync_fd(EGLDisplay egl_display, int sync_fd) {
 CoglTexture *wallpiper_egl_import_dmabuf(CoglContext *cogl_context,
                                          EGLDisplay egl_display, int fd,
                                          uint32_t width, uint32_t height,
-                                         uint32_t stride, uint32_t offset,
-                                         uint64_t modifier, GError **error) {
+                                         uint32_t format, uint32_t stride,
+                                         uint32_t offset, uint64_t modifier,
+                                         GError **error) {
   ensure_egl_funcs();
+
+  uint32_t fourcc = wp_drm_fourcc_from_vk_format(format, NULL);
 
   EGLint attribs[32];
   int i = 0;
@@ -102,7 +107,7 @@ CoglTexture *wallpiper_egl_import_dmabuf(CoglContext *cogl_context,
   attribs[i++] = EGL_HEIGHT;
   attribs[i++] = (EGLint)height;
   attribs[i++] = EGL_LINUX_DRM_FOURCC_EXT;
-  attribs[i++] = DRM_FORMAT_XRGB8888;
+  attribs[i++] = (EGLint)fourcc;
   attribs[i++] = EGL_DMA_BUF_PLANE0_FD_EXT;
   attribs[i++] = fd;
   attribs[i++] = EGL_DMA_BUF_PLANE0_OFFSET_EXT;

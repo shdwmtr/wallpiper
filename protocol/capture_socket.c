@@ -149,6 +149,7 @@ static bool parse_event(const char *header, const int *fds, int nfds,
     out->slot = (uint32_t)strtoul(slot_s, NULL, 10);
     out->width = (uint32_t)strtoul(width_s, NULL, 10);
     out->height = (uint32_t)strtoul(height_s, NULL, 10);
+    out->format = (uint32_t)strtoul(format_s, NULL, 10);
     out->stride = (uint32_t)strtoul(stride_s, NULL, 10);
     out->modifier = (uint64_t)strtoull(modifier_s, NULL, 10);
     if (geom_x_s && geom_y_s) {

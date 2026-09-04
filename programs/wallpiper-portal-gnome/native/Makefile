@@ -29,7 +29,7 @@ CSTD_FLAGS ?= -std=gnu11 -Os -Wall -Wextra -ffunction-sections -fdata-sections -
 MUTTER_PKGS := libmutter-18 mutter-cogl-18 mutter-clutter-18 gobject-2.0 gio-unix-2.0 gbm egl libdrm xrandr x11 gdk-pixbuf-2.0
 GI_PKGS := $(MUTTER_PKGS) gobject-introspection-1.0
 
-LIB_CFLAGS := $(CSTD_FLAGS) -fPIC -Iinclude $(shell pkg-config --cflags $(GI_PKGS))
+LIB_CFLAGS := $(CSTD_FLAGS) -fPIC -Iinclude -I../../../include $(shell pkg-config --cflags $(GI_PKGS))
 LIB_LIBS := $(shell pkg-config --libs $(MUTTER_PKGS)) -lpthread
 
 TEST_PRODUCER_CFLAGS := $(CSTD_FLAGS) $(shell pkg-config --cflags gbm libdrm)

@@ -23,17 +23,39 @@
 
 #pragma once
 
-#define HAVE_EGL 1
-#include "clutter/clutter.h"
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
+#include <stdint.h>
 
-G_BEGIN_DECLS
-void wallpiper_egl_wait_sync_fd(EGLDisplay egl_display, int sync_fd);
-CoglTexture *wallpiper_egl_import_dmabuf(CoglContext *cogl_context,
-                                         EGLDisplay egl_display, int fd,
-                                         uint32_t width, uint32_t height,
-                                         uint32_t format, uint32_t stride,
-                                         uint32_t offset, uint64_t modifier,
-                                         GError **error);
-G_END_DECLS
+#define WP_VK_FORMAT_R8G8B8A8_UNORM 37u
+#define WP_VK_FORMAT_R8G8B8A8_SRGB 43u
+#define WP_VK_FORMAT_B8G8R8A8_UNORM 44u
+#define WP_VK_FORMAT_B8G8R8A8_SRGB 50u
+#define WP_VK_FORMAT_A8B8G8R8_UNORM_PACK32 51u
+#define WP_VK_FORMAT_A8B8G8R8_SRGB_PACK32 56u
+
+#define WP_DRM_FORMAT_XRGB8888 0x34325258u
+#define WP_DRM_FORMAT_XBGR8888 0x34324258u
+
+static inline uint32_t wp_drm_fourcc_from_vk_format(uint32_t vk_format,
+                                                     int *out_matched) {
+  switch (vk_format) {
+  case WP_VK_FORMAT_B8G8R8A8_UNORM:
+  case WP_VK_FORMAT_B8G8R8A8_SRGB:
+    if (out_matched) {
+      *out_matched = 1;
+    }
+    return WP_DRM_FORMAT_XRGB8888;
+  case WP_VK_FORMAT_R8G8B8A8_UNORM:
+  case WP_VK_FORMAT_R8G8B8A8_SRGB:
+  case WP_VK_FORMAT_A8B8G8R8_UNORM_PACK32:
+  case WP_VK_FORMAT_A8B8G8R8_SRGB_PACK32:
+    if (out_matched) {
+      *out_matched = 1;
+    }
+    return WP_DRM_FORMAT_XBGR8888;
+  default:
+    if (out_matched) {
+      *out_matched = 0;
+    }
+    return WP_DRM_FORMAT_XRGB8888;
+  }
+}

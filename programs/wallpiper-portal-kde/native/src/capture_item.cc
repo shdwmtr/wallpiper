@@ -25,6 +25,8 @@
 
 #include "capture_coordinator.h"
 
+#include <wallpiper/vk_format.h>
+
 #include <QDateTime>
 #include <QDebug>
 #include <QGuiApplication>
@@ -228,10 +230,18 @@ void WallpaperCaptureItem::requestUpdate() {
 }
 
 void WallpaperCaptureItem::stageBuf(quint32 slot, quint32 width, quint32 height,
-                                    quint32 stride, quint64 modifier, int fd,
-                                    int syncFd) {
+                                    quint32 format, quint32 stride,
+                                    quint64 modifier, int fd, int syncFd) {
+  if (!m_loggedFormat || *m_loggedFormat != format) {
+    m_loggedFormat = format;
+    int matched = 0;
+    uint32_t fourcc = wp_drm_fourcc_from_vk_format(format, &matched);
+    qInfo() << "[capture] wallpaper buffer VkFormat" << format
+            << "mapped to DRM fourcc" << Qt::hex << fourcc
+            << (matched ? "(known mapping)" : "(unrecognized, defaulting)");
+  }
   m_pendingBufs.push_back(
-      PendingBuf{slot, width, height, stride, modifier, fd});
+      PendingBuf{slot, width, height, format, stride, modifier, fd});
   replacePendingSource(PendingSource{false, slot, syncFd});
   recordCapture();
   requestUpdate();
@@ -348,9 +358,10 @@ bool WallpaperCaptureItem::reimportSlot(quint32 slot) {
   if (dupFd < 0) {
     return false;
   }
+  uint32_t fourcc = wp_drm_fourcc_from_vk_format(it->second.format, nullptr);
   auto newImage = m_importer.createImageOnly(
       static_cast<int>(it->second.width), static_cast<int>(it->second.height),
-      it->second.stride, it->second.modifier, dupFd);
+      it->second.stride, it->second.modifier, fourcc, dupFd);
   if (!newImage) {
     qWarning() << "[capture] dmabuf image refresh failed for slot" << slot;
     return false;
@@ -449,12 +460,15 @@ QSGNode *WallpaperCaptureItem::updatePaintNode(QSGNode *oldNode,
 
     destroySlot(pending.slot);
 
+    uint32_t fourcc = wp_drm_fourcc_from_vk_format(pending.format, nullptr);
     int retainedFd = ::dup(pending.fd);
     auto imported = m_importer.importDmabuf(
         static_cast<int>(pending.width), static_cast<int>(pending.height),
-        pending.stride, pending.modifier, pending.fd);
+        pending.stride, pending.modifier, fourcc, pending.fd);
     if (!imported) {
-      qWarning() << "[capture] dmabuf import failed for slot" << pending.slot;
+      qWarning() << "[capture] dmabuf import failed for slot" << pending.slot
+                 << "(VkFormat" << pending.format << "-> fourcc" << Qt::hex
+                 << fourcc << Qt::dec << ")";
       if (retainedFd >= 0) {
         ::close(retainedFd);
       }
@@ -465,6 +479,7 @@ QSGNode *WallpaperCaptureItem::updatePaintNode(QSGNode *oldNode,
     tex.import = *imported;
     tex.width = pending.width;
     tex.height = pending.height;
+    tex.format = pending.format;
     tex.stride = pending.stride;
     tex.modifier = pending.modifier;
     tex.memFd = retainedFd;

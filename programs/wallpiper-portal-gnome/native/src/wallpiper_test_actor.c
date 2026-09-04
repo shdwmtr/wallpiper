@@ -27,6 +27,8 @@
 #include "error.h"
 #include "mutter_private.h"
 
+#include <wallpiper/vk_format.h>
+
 #include <gbm.h>
 
 #include <errno.h>
@@ -169,8 +171,8 @@ gboolean wallpiper_place_test_actor(GObject *backend_obj, GObject *parent_obj,
             dmabuf_fd, stride, offset, (unsigned long long)modifier);
 
   CoglTexture *texture = wallpiper_egl_import_dmabuf(
-      cogl_context, egl_display, dmabuf_fd, TEST_WIDTH, TEST_HEIGHT, stride,
-      offset, modifier, error);
+      cogl_context, egl_display, dmabuf_fd, TEST_WIDTH, TEST_HEIGHT,
+      WP_VK_FORMAT_B8G8R8A8_UNORM, stride, offset, modifier, error);
 
   close(dmabuf_fd);
   gbm_bo_destroy(bo);

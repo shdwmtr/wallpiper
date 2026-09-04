@@ -24,6 +24,8 @@
 #include "state_internal.h"
 #include "x11_output_lookup.h"
 
+#include <wallpiper/vk_format.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -139,7 +141,7 @@ static wp_wl_output_t *claim_output_for_size(wp_wl_state_t *state,
 
 static bool try_register_buf(wp_wl_state_t *state, uint32_t channel,
                              uint32_t wire_slot, uint32_t width,
-                             uint32_t height, uint32_t stride,
+                             uint32_t height, uint32_t format, uint32_t stride,
                              uint64_t modifier, bool has_geometry,
                              int32_t geom_x, int32_t geom_y, int fd) {
   uint32_t local_idx = wire_slot % WP_WL_CAPTURE_SLOT_COUNT;
@@ -168,8 +170,8 @@ static bool try_register_buf(wp_wl_state_t *state, uint32_t channel,
     slot->in_use = false;
   }
 
-  struct wl_buffer *buffer =
-      wp_wl_create_dmabuf_buffer(state, fd, width, height, stride, modifier);
+  struct wl_buffer *buffer = wp_wl_create_dmabuf_buffer(
+      state, fd, width, height, format, stride, modifier);
   if (!buffer) {
     close(fd);
     return true;
@@ -181,13 +183,18 @@ static bool try_register_buf(wp_wl_state_t *state, uint32_t channel,
   slot->fd = fd;
   slot->width = width;
   slot->height = height;
+  slot->format = format;
   slot->stride = stride;
   slot->modifier = modifier;
 
+  int matched = 0;
+  uint32_t fourcc = wp_drm_fourcc_from_vk_format(format, &matched);
   printf("[socket] output=%p registered capture slot %u (channel=%u "
-         "local=%u) %ux%u stride=%u modifier=%llu\n",
+         "local=%u) %ux%u VkFormat=%u -> DRM fourcc 0x%08x%s stride=%u "
+         "modifier=%llu\n",
          (void *)out->output, wire_slot, channel, local_idx, width, height,
-         stride, (unsigned long long)modifier);
+         format, fourcc, matched ? "" : " (unrecognized, defaulted)", stride,
+         (unsigned long long)modifier);
 
   wp_wl_source_t source = {.kind = WP_WL_SOURCE_SLOT, .slot = wire_slot};
   wp_wl_set_current_source(out, source);
@@ -195,9 +202,9 @@ static bool try_register_buf(wp_wl_state_t *state, uint32_t channel,
 }
 
 static void handle_buf(wp_wl_state_t *state, uint32_t wire_slot, uint32_t width,
-                       uint32_t height, uint32_t stride, uint64_t modifier,
-                       bool has_geometry, int32_t geom_x, int32_t geom_y,
-                       int fd) {
+                       uint32_t height, uint32_t format, uint32_t stride,
+                       uint64_t modifier, bool has_geometry, int32_t geom_x,
+                       int32_t geom_y, int fd) {
   uint32_t channel = wire_slot / WP_WL_CAPTURE_SLOT_COUNT;
   if (channel >= WP_WL_MAX_CAPTURE_CHANNELS) {
     printf("[socket] bad wire slot %u, dropping\n", wire_slot);
@@ -205,8 +212,8 @@ static void handle_buf(wp_wl_state_t *state, uint32_t wire_slot, uint32_t width,
     return;
   }
 
-  if (try_register_buf(state, channel, wire_slot, width, height, stride,
-                       modifier, has_geometry, geom_x, geom_y, fd)) {
+  if (try_register_buf(state, channel, wire_slot, width, height, format,
+                       stride, modifier, has_geometry, geom_x, geom_y, fd)) {
     return;
   }
 
@@ -220,6 +227,7 @@ static void handle_buf(wp_wl_state_t *state, uint32_t wire_slot, uint32_t width,
       .wire_slot = wire_slot,
       .width = width,
       .height = height,
+      .format = format,
       .stride = stride,
       .modifier = modifier,
       .has_geometry = has_geometry,
@@ -239,9 +247,10 @@ void wp_wl_retry_pending_bufs(wp_wl_state_t *state) {
       continue;
     }
     if (try_register_buf(state, pending->channel, pending->wire_slot,
-                         pending->width, pending->height, pending->stride,
-                         pending->modifier, pending->has_geometry,
-                         pending->geom_x, pending->geom_y, pending->fd)) {
+                         pending->width, pending->height, pending->format,
+                         pending->stride, pending->modifier,
+                         pending->has_geometry, pending->geom_x,
+                         pending->geom_y, pending->fd)) {
       pending->pending = false;
     }
   }
@@ -266,9 +275,9 @@ void wp_wl_handle_capture_event(wp_wl_state_t *state,
     if (event->nfds > 1) {
       close(event->fds[1]);
     }
-    handle_buf(state, event->slot, event->width, event->height, event->stride,
-               event->modifier, event->has_geometry, event->geom_x,
-               event->geom_y, image_fd);
+    handle_buf(state, event->slot, event->width, event->height,
+               event->format, event->stride, event->modifier,
+               event->has_geometry, event->geom_x, event->geom_y, image_fd);
     break;
   }
   case WP_CAPTURE_EVENT_FRAME: {

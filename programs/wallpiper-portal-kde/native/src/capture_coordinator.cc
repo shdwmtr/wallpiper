@@ -92,9 +92,9 @@ CaptureCoordinator::CaptureCoordinator(QObject *parent)
       m_ctlListener(new CtlListener(QStringLiteral("kde"), this)),
       m_cursorTimer(new QTimer(this)) {
   connect(m_captureSocket, &CaptureSocket::bufReceived, this,
-          [this](quint32 slot, quint32 width, quint32 height, quint32 stride,
-                 quint64 modifier, bool hasGeometry, qint32 geomX, qint32 geomY,
-                 int fd, int syncFd) {
+          [this](quint32 slot, quint32 width, quint32 height, quint32 format,
+                 quint32 stride, quint64 modifier, bool hasGeometry,
+                 qint32 geomX, qint32 geomY, int fd, int syncFd) {
             uint32_t channel = slot / kCaptureSlotCount;
             WallpaperCaptureItem *item = channelItem(channel);
             if (!item && hasGeometry) {
@@ -104,7 +104,8 @@ CaptureCoordinator::CaptureCoordinator(QObject *parent)
               item = claimItemForSize(channel, width, height);
             }
             if (item) {
-              item->stageBuf(slot, width, height, stride, modifier, fd, syncFd);
+              item->stageBuf(slot, width, height, format, stride, modifier,
+                             fd, syncFd);
             } else {
               ::close(fd);
               if (syncFd >= 0) {
