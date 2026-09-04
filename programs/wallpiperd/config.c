@@ -130,12 +130,85 @@ bool wp_preload_path(char *out, size_t out_len) {
   return fmt_ok(out, out_len, "%s/libwallpiper-preload.so", install_dir);
 }
 
+bool wp_preload_path32(char *out, size_t out_len) {
+  char install_dir[1024];
+  if (!wp_install_dir(install_dir, sizeof(install_dir))) {
+    return false;
+  }
+  return fmt_ok(out, out_len, "%s/libwallpiper-preload32.so", install_dir);
+}
+
+bool wp_preload32_available(void) {
+  char path[1024];
+  if (!wp_preload_path32(path, sizeof(path))) {
+    return false;
+  }
+  struct stat st;
+  return stat(path, &st) == 0 && S_ISREG(st.st_mode);
+}
+
 bool wp_dwmapi_shim_path(char *out, size_t out_len) {
   char install_dir[1024];
   if (!wp_install_dir(install_dir, sizeof(install_dir))) {
     return false;
   }
   return fmt_ok(out, out_len, "%s/dwmapi.dll", install_dir);
+}
+
+bool wp_dwmapi_shim_path32(char *out, size_t out_len) {
+  char install_dir[1024];
+  if (!wp_install_dir(install_dir, sizeof(install_dir))) {
+    return false;
+  }
+  return fmt_ok(out, out_len, "%s/dwmapi32.dll", install_dir);
+}
+
+static bool we_arch_state_path(char *out, size_t out_len) {
+  char install_dir[1024];
+  if (!wp_install_dir(install_dir, sizeof(install_dir))) {
+    return false;
+  }
+  return fmt_ok(out, out_len, "%s/.we-renderer-arch", install_dir);
+}
+
+int wp_we_last_known_arch(void) {
+  char path[1024];
+  if (!we_arch_state_path(path, sizeof(path))) {
+    return 64;
+  }
+  FILE *f = fopen(path, "r");
+  if (!f) {
+    return 64;
+  }
+  char buf[8] = {0};
+  size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+  fclose(f);
+  buf[n] = '\0';
+  if (strncmp(buf, "32", 2) == 0) {
+    return 32;
+  }
+  return 64;
+}
+
+void wp_we_remember_arch(int arch) {
+  if (arch != 32 && arch != 64) {
+    return;
+  }
+  if (wp_we_last_known_arch() == arch) {
+    return;
+  }
+  char path[1024];
+  if (!we_arch_state_path(path, sizeof(path))) {
+    return;
+  }
+  FILE *f = fopen(path, "w");
+  if (!f) {
+    return;
+  }
+  fprintf(f, "%d", arch);
+  fclose(f);
+  printf("remembered wallpaper engine renders as %d-bit for next launch\n",
+        arch);
 }
 
 bool wp_wine_builtin_dwmapi_path(char *out, size_t out_len) {

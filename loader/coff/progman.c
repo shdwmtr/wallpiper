@@ -101,7 +101,7 @@ static HWND WINAPI fake_FindWindowW(LPCWSTR lpClassName, LPCWSTR lpWindowName) {
 }
 
 void install_progman_hook(void) {
-  if (!running_as_wallpaper64()) {
+  if (!running_as_wallpaper_engine()) {
     return;
   }
 

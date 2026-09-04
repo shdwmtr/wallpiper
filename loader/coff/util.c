@@ -205,12 +205,13 @@ BOOL is_cef_subprocess(void) {
   return cmdline && ansi_contains_ci(cmdline, "--type=");
 }
 
-BOOL running_as_wallpaper64(void) {
+BOOL running_as_wallpaper_engine(void) {
   WCHAR path[MAX_PATH];
   DWORD len = GetModuleFileNameW(NULL, path, MAX_PATH);
   if (len == 0 || len >= MAX_PATH)
     return FALSE;
-  return wide_contains_ci(path, L"wallpaper64.exe");
+  return wide_contains_ci(path, L"wallpaper64.exe") ||
+         wide_contains_ci(path, L"wallpaper32.exe");
 }
 
 BOOL names_equal(const char *a, const char *b) {

@@ -22,12 +22,14 @@
 #
 
 CC ?= cc
+ARCH_SUFFIX ?=
+M32_CFLAGS ?=
 CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
-CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../include -I../libs/cjson
+CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../include -I../libs/cjson $(M32_CFLAGS)
 
 TARGET_DIR := ../build/release
-OBJ_DIR := ../build/objects/wallpiper-protocol
-LIB := $(TARGET_DIR)/libwallpiper-protocol.a
+OBJ_DIR := ../build/objects/wallpiper-protocol$(ARCH_SUFFIX)
+LIB := $(TARGET_DIR)/libwallpiper-protocol$(ARCH_SUFFIX).a
 
 SRCS := \
 	capture_socket.c \
@@ -42,9 +44,12 @@ SRCS := \
 OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
 CJSON_OBJ := $(OBJ_DIR)/cJSON.o
 
-.PHONY: build clean
+.PHONY: build build32 clean
 
 build: $(LIB)
+
+build32:
+	$(MAKE) ARCH_SUFFIX=32 M32_CFLAGS=-m32 build
 
 $(LIB): $(OBJS) $(CJSON_OBJ) | $(TARGET_DIR)
 	rm -f $@

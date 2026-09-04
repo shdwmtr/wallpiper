@@ -127,7 +127,8 @@ static bool comm_is_renderer(int pid, const void *ctx) {
   (void)ctx;
   char comm[256];
   return read_comm(pid, comm, sizeof(comm)) &&
-         strcmp(comm, "wallpaper64.exe") == 0;
+         (strcmp(comm, "wallpaper64.exe") == 0 ||
+          strcmp(comm, "wallpaper32.exe") == 0);
 }
 
 void wp_find_renderer_pids(wp_pid_list_t *out) {

@@ -113,8 +113,22 @@ static bool install_shim(const char *src, const char *dst) {
 void wp_dwmapi_shim_wire_up(void) {
   remove_stale_prefix_override();
 
+  int arch = wp_we_last_known_arch();
   char shim[1024];
-  if (!wp_dwmapi_shim_path(shim, sizeof(shim))) {
+  bool have_shim = false;
+  if (arch == 32) {
+    have_shim = wp_dwmapi_shim_path32(shim, sizeof(shim));
+    struct stat st32;
+    if (have_shim && (stat(shim, &st32) != 0 || !S_ISREG(st32.st_mode))) {
+      printf("WE last ran as 32-bit but no dwmapi32.dll shim "
+             "is installed\n");
+      have_shim = false;
+    }
+  }
+  if (!have_shim) {
+    have_shim = wp_dwmapi_shim_path(shim, sizeof(shim));
+  }
+  if (!have_shim) {
     printf("could not resolve dwmapi shim path, skipping "
            "RegisterWaitForSingleObject workaround\n");
     return;

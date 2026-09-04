@@ -22,12 +22,14 @@
 #
 
 CC ?= cc
+ARCH_SUFFIX ?=
+M32_CFLAGS ?=
 CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
-CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables
+CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables $(M32_CFLAGS)
 
 TARGET_DIR := ../../build/release
-OBJ_DIR := ../../build/objects
-SO := $(TARGET_DIR)/libwallpiper-preload.so
+OBJ_DIR := ../../build/objects/preload$(ARCH_SUFFIX)
+SO := $(TARGET_DIR)/libwallpiper-preload$(ARCH_SUFFIX).so
 
 SRCS := \
 	cursor_forward.c \
@@ -37,9 +39,12 @@ SRCS := \
 
 OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
 
-.PHONY: build clean
+.PHONY: build build32 clean
 
 build: $(SO)
+
+build32:
+	$(MAKE) ARCH_SUFFIX=32 M32_CFLAGS=-m32 build
 
 $(SO): $(OBJS) | $(TARGET_DIR)
 	$(CC) $(CFLAGS) -shared -Wl,--gc-sections -s -o $@ $(OBJS) -ldl -lpthread

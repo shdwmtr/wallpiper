@@ -42,7 +42,7 @@ void basename_w(const WCHAR *path, WCHAR *out);
 BOOL get_env_path(const WCHAR *name, WCHAR *out, DWORD out_len);
 void narrow_maybe_atom(LPCWSTR s, char *out, size_t out_cap);
 BOOL is_cef_subprocess(void);
-BOOL running_as_wallpaper64(void);
+BOOL running_as_wallpaper_engine(void);
 BOOL names_equal(const char *a, const char *b);
 void spawn_dump_log(const char *msg);
 

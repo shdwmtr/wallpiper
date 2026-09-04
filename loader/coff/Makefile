@@ -24,11 +24,13 @@
 TCC_SRC := $(abspath ../../x86_64-pc-windows-tcc)
 TCC_BUILD_DIR := ../../build/tcc
 TCC_BIN := $(TCC_BUILD_DIR)/x86_64-win32-tcc
+TCC_BIN_32 := $(TCC_BUILD_DIR)/i386-win32-tcc
 LIBSNARE_DIR := ../../libs/libsnare
 override CFLAGS := -std=gnu11 -Wall -Wextra -shared -nostdlib -ffreestanding -fno-builtin -isystem $(TCC_SRC)/include -I . -I $(LIBSNARE_DIR)
 
 TARGET_DIR := ../../build/release
 DLL := $(TARGET_DIR)/dwmapi.dll
+DLL_32 := $(TARGET_DIR)/dwmapi32.dll
 
 SRCS := \
 	dllmain.c \
@@ -46,20 +48,27 @@ SRCS := \
 	waitobj.c \
 	spawn.c
 
-.PHONY: build build-tcc clean clean-tcc
+.PHONY: build build32 build-tcc build-tcc32 clean clean-tcc
 
 build: build-tcc | $(TARGET_DIR)
 	$(TCC_BIN) $(CFLAGS) -o $(DLL) $(SRCS)
+
+build32: build-tcc32 | $(TARGET_DIR)
+	$(TCC_BIN_32) $(CFLAGS) -o $(DLL_32) $(SRCS)
 
 build-tcc:
 	mkdir -p $(TCC_BUILD_DIR)
 	cd $(TCC_BUILD_DIR) && { [ -f config.mak ] || $(TCC_SRC)/configure; } && { [ -x x86_64-win32-tcc ] || $(MAKE) cross-x86_64-win32; }
 
+build-tcc32:
+	mkdir -p $(TCC_BUILD_DIR)
+	cd $(TCC_BUILD_DIR) && { [ -f config.mak ] || $(TCC_SRC)/configure; } && { [ -x i386-win32-tcc ] || $(MAKE) cross-i386-win32; }
+
 $(TARGET_DIR):
 	mkdir -p $@
 
 clean:
-	rm -f $(DLL)
+	rm -f $(DLL) $(DLL_32)
 
 clean-tcc:
 	rm -rf $(TCC_BUILD_DIR)

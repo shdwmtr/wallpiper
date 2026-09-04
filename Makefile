@@ -24,8 +24,9 @@
 KDE_BUILD_DIR := build/kde
 XDG_DATA_HOME ?= $(HOME)/.local/share
 
-.PHONY: help build-all build-core build-protocol build-daemon build-ctl build-vklayer \
-        build-interpose build-dwmapi-shim build-wl-common build-hyprland build-i3 \
+.PHONY: help build-all build-core build-core32 build-protocol build-protocol32 build-daemon \
+        build-ctl build-vklayer build-vklayer32 build-interpose build-interpose32 \
+        build-dwmapi-shim build-dwmapi-shim32 build-wl-common build-hyprland build-i3 \
         build-sway build-cosmic build-gnome build-kde configure-kde install-gnome install-kde \
         install-wallpiperd compile-commands fmt clean
 
@@ -36,8 +37,13 @@ build-all: build-protocol build-daemon build-ctl build-vklayer build-interpose b
 
 build-core: build-protocol build-daemon build-ctl build-vklayer build-interpose build-dwmapi-shim
 
+build-core32: build-protocol32 build-vklayer32 build-interpose32 build-dwmapi-shim32
+
 build-protocol:
 	$(MAKE) -C protocol build
+
+build-protocol32:
+	$(MAKE) -C protocol build32
 
 build-daemon: build-protocol
 	$(MAKE) -C programs/wallpiperd build
@@ -48,11 +54,20 @@ build-ctl: build-protocol
 build-vklayer: build-protocol
 	$(MAKE) -C loader/vk-layer-hook build
 
+build-vklayer32: build-protocol32
+	$(MAKE) -C loader/vk-layer-hook build32
+
 build-interpose:
 	$(MAKE) -C loader/elf build
 
+build-interpose32:
+	$(MAKE) -C loader/elf build32
+
 build-dwmapi-shim:
 	$(MAKE) -C loader/coff build
+
+build-dwmapi-shim32:
+	$(MAKE) -C loader/coff build32
 
 build-wl-common: build-protocol
 	$(MAKE) -C programs/wallpiper-portal-wl-common build
@@ -95,6 +110,8 @@ install-wallpiperd: build-core
 	install -m 755 build/release/libwallpiper-preload.so "$(HOME)/.local/lib/wallpiper/"
 	install -m 755 build/release/libVkLayer_wallpiper_capture.so "$(HOME)/.local/lib/wallpiper/"
 	install -m 644 build/release/dwmapi.dll "$(HOME)/.local/lib/wallpiper/"
+	for f in libwallpiper-preload32.so libVkLayer_wallpiper_capture32.so; do [ -f "build/release/$$f" ] && install -m 755 "build/release/$$f" "$(HOME)/.local/lib/wallpiper/" || true; done
+	[ -f build/release/dwmapi32.dll ] && install -m 644 build/release/dwmapi32.dll "$(HOME)/.local/lib/wallpiper/" || true
 	for portal in hyprland i3 sway cosmic; do bin="build/release/wallpiper-portal-$$portal"; [ -f "$$bin" ] && install -m 755 "$$bin" "$(HOME)/.local/lib/wallpiper/" || true; done
 	mkdir -p "$(HOME)/.local/bin"
 	ln -sf "$(HOME)/.local/lib/wallpiper/wallpiperd" "$(HOME)/.local/bin/wallpiperd"

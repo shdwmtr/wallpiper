@@ -23,6 +23,10 @@
 
 #pragma once
 
+#include <stdbool.h>
+
 #define WP_VK_CAPTURE_LAYER_NAME "VK_LAYER_wallpiper_capture"
+#define WP_VK_CAPTURE_LAYER_NAME_32 "VK_LAYER_wallpiper_capture32"
 
 void wp_write_vk_layer_manifest(void);
+bool wp_vk_capture_layer32_available(void);

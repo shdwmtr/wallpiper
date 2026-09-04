@@ -22,14 +22,16 @@
 #
 
 CC ?= cc
+ARCH_SUFFIX ?=
+M32_CFLAGS ?=
 VULKAN_CFLAGS := $(shell pkg-config --cflags vulkan)
 CFLAGS ?= -std=gnu99 -Os -Wall -Wextra
-CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../include -I../../libs/vulkan $(VULKAN_CFLAGS)
+CFLAGS += -fPIC -fvisibility=hidden -D_GNU_SOURCE -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -I../../include -I../../libs/vulkan $(VULKAN_CFLAGS) $(M32_CFLAGS)
 
 TARGET_DIR := ../../build/release
-OBJ_DIR := ../../build/objects/siphon
-SO := $(TARGET_DIR)/libVkLayer_wallpiper_capture.so
-PROTOCOL_LIB := $(TARGET_DIR)/libwallpiper-protocol.a
+OBJ_DIR := ../../build/objects/siphon$(ARCH_SUFFIX)
+SO := $(TARGET_DIR)/libVkLayer_wallpiper_capture$(ARCH_SUFFIX).so
+PROTOCOL_LIB := $(TARGET_DIR)/libwallpiper-protocol$(ARCH_SUFFIX).a
 
 SRCS := \
 	capture.c \
@@ -41,9 +43,13 @@ SRCS := \
 
 OBJS := $(addprefix $(OBJ_DIR)/,$(SRCS:.c=.o))
 
-.PHONY: build build-protocol clean
+.PHONY: build build32 build-protocol build-protocol32 clean
 
 build: build-protocol $(SO)
+
+build32:
+	$(MAKE) ARCH_SUFFIX=32 M32_CFLAGS=-m32 build-protocol32
+	$(MAKE) ARCH_SUFFIX=32 M32_CFLAGS=-m32 build
 
 $(SO): $(OBJS) $(PROTOCOL_LIB) | $(TARGET_DIR)
 	$(CC) $(CFLAGS) -shared -Wl,--gc-sections -s -o $@ $(OBJS) $(PROTOCOL_LIB) -lpthread
@@ -53,6 +59,9 @@ $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
 
 build-protocol:
 	$(MAKE) -C ../../protocol build
+
+build-protocol32:
+	$(MAKE) -C ../../protocol build32
 
 $(TARGET_DIR) $(OBJ_DIR):
 	mkdir -p $@

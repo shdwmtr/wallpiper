@@ -79,7 +79,8 @@ static bool renderer_pid_still_valid(int pid) {
     n--;
   }
   comm[n] = '\0';
-  return strcmp(comm, "wallpaper64.exe") == 0;
+  return strcmp(comm, "wallpaper64.exe") == 0 ||
+         strcmp(comm, "wallpaper32.exe") == 0;
 }
 
 static bool wrapper_pid_still_valid(int pid) {
@@ -183,6 +184,27 @@ static bool pid_list_contains(const wp_pid_list_t *list, int pid) {
   return false;
 }
 
+static void remember_renderer_arch(int pid) {
+  char path[64];
+  snprintf(path, sizeof(path), "/proc/%d/comm", pid);
+  FILE *f = fopen(path, "r");
+  if (!f) {
+    return;
+  }
+  char comm[256];
+  size_t n = fread(comm, 1, sizeof(comm) - 1, f);
+  fclose(f);
+  while (n > 0 && (comm[n - 1] == '\n' || comm[n - 1] == '\r')) {
+    n--;
+  }
+  comm[n] = '\0';
+  if (strcmp(comm, "wallpaper32.exe") == 0) {
+    wp_we_remember_arch(32);
+  } else if (strcmp(comm, "wallpaper64.exe") == 0) {
+    wp_we_remember_arch(64);
+  }
+}
+
 static bool discover_new_renderer_pid(const wp_pid_list_t *pre_spawn,
                                       int *out_pid) {
   for (int attempt = 0; attempt < 20; attempt++) {
@@ -191,6 +213,7 @@ static bool discover_new_renderer_pid(const wp_pid_list_t *pre_spawn,
     for (size_t i = 0; i < current.count; i++) {
       if (!pid_list_contains(pre_spawn, current.pids[i])) {
         printf("tracking new renderer pid=%d\n", current.pids[i]);
+        remember_renderer_arch(current.pids[i]);
         *out_pid = current.pids[i];
         return true;
       }
@@ -265,8 +288,22 @@ void wp_renderer_spawn(void) {
     wp_dwmapi_shim_wire_up();
 
     char preload[1024];
-    if (wp_preload_path(preload, sizeof(preload))) {
+    char preload32[1024];
+    bool have_preload = wp_preload_path(preload, sizeof(preload));
+    bool have_preload32 =
+        wp_preload32_available() && wp_preload_path32(preload32, sizeof(preload32));
+    if (have_preload && have_preload32) {
+      char combined[2048];
+      if (snprintf(combined, sizeof(combined), "%s:%s", preload, preload32) <
+          (int)sizeof(combined)) {
+        setenv("LD_PRELOAD", combined, 1);
+      } else {
+        setenv("LD_PRELOAD", preload, 1);
+      }
+    } else if (have_preload) {
       setenv("LD_PRELOAD", preload, 1);
+    } else if (have_preload32) {
+      setenv("LD_PRELOAD", preload32, 1);
     }
 
     char font_redirects[16384];
@@ -282,7 +319,12 @@ void wp_renderer_spawn(void) {
     if (wp_vk_layer_path(vk_layer_path, sizeof(vk_layer_path))) {
       setenv("VK_ADD_LAYER_PATH", vk_layer_path, 1);
     }
-    setenv("VK_INSTANCE_LAYERS", WP_VK_CAPTURE_LAYER_NAME, 1);
+    if (wp_vk_capture_layer32_available()) {
+      setenv("VK_INSTANCE_LAYERS",
+            WP_VK_CAPTURE_LAYER_NAME ":" WP_VK_CAPTURE_LAYER_NAME_32, 1);
+    } else {
+      setenv("VK_INSTANCE_LAYERS", WP_VK_CAPTURE_LAYER_NAME, 1);
+    }
 
     char portal_name[64];
     char perr[256];

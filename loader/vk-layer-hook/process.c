@@ -21,11 +21,14 @@
  * SOFTWARE.
  */
 
+#include "logging.h"
 #include "process.h"
 
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
+
+static char g_detected_comm[256] = "";
 
 static bool detect_target_process(void) {
   FILE *f = fopen("/proc/self/comm", "r");
@@ -37,7 +40,9 @@ static bool detect_target_process(void) {
       n--;
     }
     comm[n] = '\0';
-    if (strcmp(comm, "wallpaper64.exe") == 0) {
+    snprintf(g_detected_comm, sizeof(g_detected_comm), "%s", comm);
+    if (strcmp(comm, "wallpaper64.exe") == 0 ||
+        strcmp(comm, "wallpaper32.exe") == 0) {
       return true;
     }
   }
@@ -49,7 +54,9 @@ static bool detect_target_process(void) {
     fclose(f);
     cmdline[n] = '\0';
     if (memmem(cmdline, n, "webwallpaper64.exe",
-               strlen("webwallpaper64.exe")) != NULL) {
+               strlen("webwallpaper64.exe")) != NULL ||
+        memmem(cmdline, n, "webwallpaper32.exe",
+               strlen("webwallpaper32.exe")) != NULL) {
       return true;
     }
   }
@@ -60,7 +67,16 @@ static bool detect_target_process(void) {
 static pthread_once_t g_once = PTHREAD_ONCE_INIT;
 static bool g_is_target = false;
 
-static void init_once(void) { g_is_target = detect_target_process(); }
+static void init_once(void) {
+  g_is_target = detect_target_process();
+  if (!g_is_target) {
+    WP_LOG("capture layer loaded into unrecognized process %s%s%s, frame "
+           "capture disabled for this process",
+           g_detected_comm[0] ? "'" : "(comm unavailable)",
+           g_detected_comm[0] ? g_detected_comm : "",
+           g_detected_comm[0] ? "'" : "");
+  }
+}
 
 bool wp_capture_is_target_process(void) {
   pthread_once(&g_once, init_once);
