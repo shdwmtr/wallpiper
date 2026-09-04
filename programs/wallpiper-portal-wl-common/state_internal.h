@@ -134,7 +134,9 @@ struct wp_wl_state {
   wp_wl_output_t outputs[WP_WL_MAX_OUTPUTS];
   size_t output_count;
 
-  wp_wl_pending_buf_t pending_bufs[WP_WL_MAX_CAPTURE_CHANNELS];
+  wp_wl_pending_buf_t pending_bufs[WP_WL_MAX_CAPTURE_CHANNELS]
+                                  [WP_WL_CAPTURE_SLOT_COUNT];
+  bool logged_dropped_frame[WP_WL_MAX_CAPTURE_CHANNELS];
 
   bool debug_enabled;
   struct wl_surface *debug_surface;

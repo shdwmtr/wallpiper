@@ -218,6 +218,7 @@ void wp_wl_portal_run(const wp_wl_portal_config_t *config) {
   for (;;) {
     wl_display_dispatch_pending(state.display);
     wl_display_flush(state.display);
+    wp_wl_retry_pending_bufs(&state);
 
     for (;;) {
       wp_capture_event_t event;

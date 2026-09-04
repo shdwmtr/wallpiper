@@ -217,7 +217,8 @@ static void handle_buf(wp_wl_state_t *state, uint32_t wire_slot, uint32_t width,
     return;
   }
 
-  wp_wl_pending_buf_t *pending = &state->pending_bufs[channel];
+  uint32_t local_idx = wire_slot % WP_WL_CAPTURE_SLOT_COUNT;
+  wp_wl_pending_buf_t *pending = &state->pending_bufs[channel][local_idx];
   if (pending->pending) {
     close(pending->fd);
   }
@@ -242,16 +243,19 @@ static void handle_buf(wp_wl_state_t *state, uint32_t wire_slot, uint32_t width,
 
 void wp_wl_retry_pending_bufs(wp_wl_state_t *state) {
   for (uint32_t channel = 0; channel < WP_WL_MAX_CAPTURE_CHANNELS; channel++) {
-    wp_wl_pending_buf_t *pending = &state->pending_bufs[channel];
-    if (!pending->pending) {
-      continue;
-    }
-    if (try_register_buf(state, pending->channel, pending->wire_slot,
-                         pending->width, pending->height, pending->format,
-                         pending->stride, pending->modifier,
-                         pending->has_geometry, pending->geom_x,
-                         pending->geom_y, pending->fd)) {
-      pending->pending = false;
+    for (uint32_t local_idx = 0; local_idx < WP_WL_CAPTURE_SLOT_COUNT;
+        local_idx++) {
+      wp_wl_pending_buf_t *pending = &state->pending_bufs[channel][local_idx];
+      if (!pending->pending) {
+        continue;
+      }
+      if (try_register_buf(state, pending->channel, pending->wire_slot,
+                           pending->width, pending->height, pending->format,
+                           pending->stride, pending->modifier,
+                           pending->has_geometry, pending->geom_x,
+                           pending->geom_y, pending->fd)) {
+        pending->pending = false;
+      }
     }
   }
 }
@@ -290,6 +294,12 @@ void wp_wl_handle_capture_event(wp_wl_state_t *state,
     if (out && out->slots[local_idx].in_use) {
       wp_wl_source_t source = {.kind = WP_WL_SOURCE_SLOT, .slot = event->slot};
       wp_wl_set_current_source(out, source);
+    } else if (channel < WP_WL_MAX_CAPTURE_CHANNELS &&
+              !state->logged_dropped_frame[channel]) {
+      state->logged_dropped_frame[channel] = true;
+      printf("[socket] dropping frames for channel %u, output not bound yet "
+             "(further drops on this channel won't be logged)\n",
+             channel);
     }
     break;
   }
@@ -313,11 +323,15 @@ void wp_wl_handle_capture_event(wp_wl_state_t *state,
 
 void wp_wl_detach(wp_wl_state_t *state) {
   for (uint32_t channel = 0; channel < WP_WL_MAX_CAPTURE_CHANNELS; channel++) {
-    wp_wl_pending_buf_t *pending = &state->pending_bufs[channel];
-    if (pending->pending) {
-      close(pending->fd);
-      pending->pending = false;
+    for (uint32_t local_idx = 0; local_idx < WP_WL_CAPTURE_SLOT_COUNT;
+        local_idx++) {
+      wp_wl_pending_buf_t *pending = &state->pending_bufs[channel][local_idx];
+      if (pending->pending) {
+        close(pending->fd);
+        pending->pending = false;
+      }
     }
+    state->logged_dropped_frame[channel] = false;
   }
 
   for (size_t i = 0; i < state->output_count; i++) {
